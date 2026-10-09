@@ -24,13 +24,13 @@ app.config['SECRET_KEY'] = os.environ.get(
     'SECRET_KEY', 'cle_secrete_par_defaut_a_changer'
 )
 
-# Gestion de la base de données (compatible SQLite local & PostgreSQL persistant sur Render)
+# Gestion de la base de données (compatible SQLite local & PostgreSQL persistant sur Render avec psycopg v3)
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///caserne.db')
 if db_url:
   if db_url.startswith('postgres://'):
-    db_url = db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
+    db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
   elif db_url.startswith('postgresql://'):
-    db_url = db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    db_url = db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
