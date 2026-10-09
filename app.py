@@ -165,6 +165,7 @@ def manage_users():
   if request.method == 'POST':
     username = request.form.get('username')
     role = request.form.get('role')
+    level = request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
     nom = request.form.get('nom', '')
     prenom = request.form.get('prenom', '')
     temp_pw = 'JSPinit2026'
@@ -176,6 +177,7 @@ def manage_users():
           username=username,
           password_hash=generate_password_hash(temp_pw),
           role=role,
+          level=level,
           nom=nom,
           prenom=prenom,
           first_login=True,
@@ -190,14 +192,33 @@ def manage_users():
         db.session.commit()
 
       flash(
-          f'Compte {username} créé avec succès (Mot de passe provisoire :'
-          f' {temp_pw}).',
+          f'Compte {username} créé avec succès (Niveau : {level} | Mot de'
+          f' passe : {temp_pw}).',
           'success',
       )
     return redirect(url_for('manage_users'))
 
   users = User.query.all()
   return render_template('manage_users.html', users=users)
+
+
+@app.route('/formateur/update-level/<int:jsp_id>', methods=['POST'])
+@login_required
+def update_jsp_level(jsp_id):
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  jsp = User.query.get_or_404(jsp_id)
+  if jsp.role == 'jsp':
+    new_level = request.form.get('level')
+    if new_level in ['JSP 1', 'JSP 2', 'JSP 3', 'JSP 4']:
+      jsp.level = new_level
+      db.session.commit()
+      flash(
+          f'Niveau de {jsp.prenom} {jsp.nom} mis à jour avec succès ('
+          f'{new_level}).',
+          'success',
+      )
+  return redirect(url_for('dashboard_formateur'))
 
 
 @app.route('/formateur/upload-course', methods=['POST'])
