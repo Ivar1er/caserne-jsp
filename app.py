@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from flask import (
     Flask,
@@ -25,7 +26,7 @@ app.config['SECRET_KEY'] = os.environ.get(
 
 # Gestion de la base de données (compatible SQLite local & PostgreSQL sur Render)
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///caserne.db')
-if db_url.startswith('postgres://'):
+if db_url and db_url.startswith('postgres://'):
   db_url = db_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -40,6 +41,23 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
   return User.query.get(int(user_id))
+
+
+# Initialisation automatique de la base de données et du compte admin au démarrage (requis pour Render)
+with app.app_context():
+  db.create_all()
+  if not User.query.filter_by(role='admin').first():
+    admin_user = User(
+        username='admin',
+        password_hash=generate_password_hash('Admin2026!'),
+        role='admin',
+        prenom='Nicolas',
+        nom='Admin',
+        email='admin@caserne.fr',
+        first_login=False,
+    )
+    db.session.add(admin_user)
+    db.session.commit()
 
 
 # Sécurité: Forcer le changement de mot de passe à la première connexion
@@ -114,12 +132,10 @@ def forgot_password():
     email = request.form.get('email')
     user = User.query.filter_by(email=email).first()
     if user:
-      # Génération d'un mot de passe provisoire
       temp_pw = 'JSP2026!'
       user.password_hash = generate_password_hash(temp_pw)
       user.first_login = True
       db.session.commit()
-      # En production, intégrer l'envoi d'e-mail (Flask-Mail). Ici affichage flash pour test :
       flash(
           f'Un mot de passe provisoire a été envoyé à {email}. (Mode test,'
           f' provisoire : {temp_pw})',
@@ -145,7 +161,6 @@ def dashboard_formateur():
   )
 
 
-# Gestion des utilisateurs (Admin uniquement)
 @app.route('/admin/users', methods=['GET', 'POST'])
 @login_required
 def manage_users():
@@ -155,7 +170,7 @@ def manage_users():
 
   if request.method == 'POST':
     username = request.form.get('username')
-    role = request.form.get('role')  # 'formateur' ou 'jsp'
+    role = request.form.get('role')
     nom = request.form.get('nom', '')
     prenom = request.form.get('prenom', '')
     temp_pw = 'JSPinit2026'
@@ -174,7 +189,6 @@ def manage_users():
       db.session.add(new_user)
       db.session.commit()
 
-      # Si c'est un événement ou un JSP, créer les entrées d'événements si besoin
       if role == 'jsp':
         events = Event.query.all()
         for ev in events:
@@ -250,6 +264,10 @@ def create_event():
     new_event = Event(
         title=title,
         description=description,
+    )
+    new_event = Event(
+        title=title,
+        description=description,
         date_time=date_time,
         location=location,
         created_by=f'{current_user.prenom} {current_user.nom}',
@@ -257,7 +275,6 @@ def create_event():
     db.session.add(new_event)
     db.session.commit()
 
-    # Initialiser les réponses pour tous les JSP
     jsps = User.query.filter_by(role='jsp').all()
     for jsp in jsps:
       db.session.add(EventResponse(event_id=new_event.id, jsp_id=jsp.id))
@@ -302,7 +319,6 @@ def respond_event(event_id):
   return redirect(url_for('dashboard_jsp'))
 
 
-# Profil utilisateur (pour modifier ses infos perso et email)
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -317,19 +333,4 @@ def profile():
 
 
 if __name__ == '__main__':
-  with app.app_context():
-    db.create_all()
-    # Création d'un compte Admin par défaut si aucun n'existe
-    if not User.query.filter_by(role='admin').first():
-      admin_user = User(
-          username='admin',
-          password_hash=generate_password_hash('Admin2026!'),
-          role='admin',
-          prenom='Nicolas',
-          nom='Admin',
-          email='admin@caserne.fr',
-          first_login=False,
-      )
-      db.session.add(admin_user)
-      db.session.commit()
   app.run(debug=True)
