@@ -18,7 +18,10 @@
                         <label class="form-label">Adresse e-mail (pour le mot de passe oublié)</label>
                         <input type="email" name="email" class="form-control" value="{{ current_user.email or '' }}" required>
                     </div>
-                    <button type="submit" class="btn btn-danger w-100">Enregistrer</button>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary w-50">Retour</a>
+                        <button type="submit" class="btn btn-danger w-50">Enregistrer</button>
+                    </div>
                 </form>
             </div>
         </div>

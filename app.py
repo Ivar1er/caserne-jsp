@@ -24,7 +24,6 @@ app.config['SECRET_KEY'] = os.environ.get(
     'SECRET_KEY', 'cle_secrete_par_defaut_a_changer'
 )
 
-# Gestion de la base de données (compatible SQLite local & PostgreSQL sur Render)
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///caserne.db')
 if db_url and db_url.startswith('postgres://'):
   db_url = db_url.replace('postgres://', 'postgresql://', 1)
@@ -43,7 +42,6 @@ def load_user(user_id):
   return User.query.get(int(user_id))
 
 
-# Initialisation automatique de la base de données et du compte admin au démarrage (requis pour Render)
 with app.app_context():
   db.create_all()
   if not User.query.filter_by(role='admin').first():
@@ -60,7 +58,6 @@ with app.app_context():
     db.session.commit()
 
 
-# Sécurité: Forcer le changement de mot de passe à la première connexion
 @app.before_request
 def check_first_login():
   if current_user.is_authenticated and current_user.first_login:
@@ -84,7 +81,6 @@ def index():
     return redirect(url_for('dashboard_jsp'))
 
 
-# --- AUTHENTIFICATION ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
   if request.method == 'POST':
@@ -146,13 +142,11 @@ def forgot_password():
   return render_template('forgot_password.html')
 
 
-# --- ESPACE FORMATEUR / ADMIN ---
 @app.route('/formateur')
 @login_required
 def dashboard_formateur():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
-
   jsps = User.query.filter_by(role='jsp').all()
   courses = Course.query.order_by(Course.upload_date.desc()).all()
   events = Event.query.order_by(Event.date_time.asc()).all()
@@ -257,18 +251,17 @@ def create_event():
   title = request.form.get('title')
   description = request.form.get('description')
   date_str = request.form.get('date_time')
+  end_str = request.form.get('end_time')
   location = request.form.get('location')
 
   if title and date_str:
     date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-    new_event = Event(
-        title=title,
-        description=description,
-    )
+    end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M') if end_str else None
     new_event = Event(
         title=title,
         description=description,
         date_time=date_time,
+        end_time=end_time,
         location=location,
         created_by=f'{current_user.prenom} {current_user.nom}',
     )
@@ -284,7 +277,6 @@ def create_event():
   return redirect(url_for('dashboard_formateur'))
 
 
-# --- ESPACE JSP ---
 @app.route('/jsp')
 @login_required
 def dashboard_jsp():

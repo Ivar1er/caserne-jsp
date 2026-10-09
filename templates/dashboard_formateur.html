@@ -14,24 +14,35 @@
     <div class="tab-pane fade show active" id="seances">
         <h4>Créer une Séance / Événement</h4>
         <form method="POST" action="{{ url_for('create_event') }}" class="row g-3 mb-4">
-            <div class="col-md-4"><input type="text" name="title" class="form-control" placeholder="Titre (ex: Séance N°1)" required></div>
-            <div class="col-md-3"><input type="datetime-local" name="date_time" class="form-control" required></div>
-            <div class="col-md-3"><input type="text" name="location" class="form-control" placeholder="Lieu"></div>
+            <div class="col-md-3"><input type="text" name="title" class="form-control" placeholder="Titre (ex: Séance N°1)" required></div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-0">Début :</label>
+                <input type="datetime-local" name="date_time" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-0">Fin :</label>
+                <input type="datetime-local" name="end_time" class="form-control">
+            </div>
+            <div class="col-md-3"><input type="text" name="location" class="form-control mt-4" placeholder="Lieu"></div>
+            <div class="col-12"><textarea name="description" class="form-control" placeholder="Détails, thèmes ou activités prévus (utilisez des tirets - pour les listes)..." rows="3"></textarea></div>
             <div class="col-md-2"><button type="submit" class="btn btn-danger w-100">Créer</button></div>
-            <div class="col-12"><textarea name="description" class="form-control" placeholder="Description / Détails..."></textarea></div>
         </form>
 
         <h4>Liste des Événements & Présences</h4>
         {% for ev in events %}
         <div class="card mb-3">
             <div class="card-body">
-                <h5>{{ ev.title }} <small class="text-muted">({{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }} - {{ ev.location }})</small></h5>
-                <p>{{ ev.description }}</p>
+                <h5>{{ ev.title }} 
+                    <small class="text-muted">
+                        ({{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }}{% if ev.end_time %} au {{ ev.end_time.strftime('%H:%M') }}{% endif %} - {{ ev.location }})
+                    </small>
+                </h5>
+                <p class="mb-2" style="white-space: pre-line;">{{ ev.description }}</p>
                 <details>
-                    <summary class="fw-bold text-danger" style="cursor: pointer;">Voir les réponses de présence (Présentiel Samedi)</summary>
+                    <summary class="fw-bold text-danger" style="cursor: pointer;">Voir les réponses de présence (Présentiel)</summary>
                     <ul class="list-group mt-2">
                         {% for resp in ev.responses %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-1">
                             {{ resp.jsp.prenom }} {{ resp.jsp.nom }} ({{ resp.jsp.username }})
                             <span class="badge bg-{% if resp.status == 'present' %}success{% elif resp.status == 'absent' %}danger{% else %}secondary{% endif %}">
                                 {{ resp.status.upper() }}
@@ -89,9 +100,12 @@
             <div class="col-md-2"><button type="submit" class="btn btn-danger w-100">Envoyer</button></div>
         </form>
         <h4>Documents disponibles</h4>
-        <ul>
+        <ul class="list-group">
             {% for c in courses %}
-            <li><a href="{{ url_for('static', filename='uploads/' + c.filename) }}" target="_blank">{{ c.title }}</a> (Déposé par {{ c.uploaded_by }})</li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('static', filename='uploads/' + c.filename) }}" target="_blank" class="text-decoration-none fw-bold">{{ c.title }}</a>
+                <small class="text-muted">Déposé par {{ c.uploaded_by }}</small>
+            </li>
             {% endfor %}
         </ul>
     </div>
