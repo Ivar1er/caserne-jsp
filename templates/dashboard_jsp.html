@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Mon Espace JSP - {{ current_user.prenom }} {{ current_user.nom }}</h2>
+<hr>
+
+<ul class="nav nav-tabs" id="jspTab" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#calendrier">Calendrier & Événements</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mescours">Cours</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mesevals">Mes Évaluations</button></li>
+</ul>
+
+<div class="tab-content bg-white p-4 border border-top-0 rounded-bottom shadow-sm">
+    <!-- CALENDRIER & ÉVÉNEMENTS -->
+    <div class="tab-pane fade show active" id="calendrier">
+        <h4>Calendrier & Prochaines Séances</h4>
+        <p class="text-muted">Cliquez sur "Présent" ou "Absent" pour répondre à l'appel pour le samedi suivant.</p>
+        <div class="list-group">
+            {% for ev in events %}
+            <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 shadow-sm">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1 text-danger">{{ ev.title }}</h5>
+                    <small class="fw-bold">{{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                </div>
+                <p class="mb-1"><strong>Lieu :</strong> {{ ev.location }}</p>
+                <p class="mb-1">{{ ev.description }}</p>
+                <hr>
+                <form method="POST" action="{{ url_for('respond_event', event_id=ev.id) }}" class="d-flex align-items-center gap-2">
+                    <span class="small fw-bold">Votre présence :</span>
+                    <button type="submit" name="status" value="present" class="btn btn-sm btn-outline-success {% if responses.get(ev.id) == 'present' %}active{% endif %}">Présent</button>
+                    <button type="submit" name="status" value="absent" class="btn btn-sm btn-outline-danger {% if responses.get(ev.id) == 'absent' %}active{% endif %}">Absent</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- COURS -->
+    <div class="tab-pane fade" id="mescours">
+        <h4>Cours & Ressources pédagogiques</h4>
+        <ul class="list-group">
+            {% for c in courses %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('static', filename='uploads/' + c.filename) }}" target="_blank" class="text-decoration-none fw-bold">{{ c.title }}</a>
+                <small class="text-muted">Par {{ c.uploaded_by }}</small>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- ÉVALUATIONS -->
+    <div class="tab-pane fade" id="mesevals">
+        <h4>Mes Évaluations (Consultation seule)</h4>
+        <ul class="list-group">
+            {% for ev in evaluations %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('static', filename='uploads/' + ev.filename) }}" target="_blank" class="text-decoration-none fw-bold text-dark">{{ ev.title }}</a>
+                <span class="badge bg-secondary">Déposé le {{ ev.upload_date.strftime('%d/%m/%Y') }}</span>
+            </li>
+            {% else %}
+            <p class="text-muted">Aucune évaluation disponible pour le moment.</p>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Gestion des Utilisateurs (Admin)</h2>
+<hr>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5>Créer un compte</h5>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Identifiant (username)</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prénom</label>
+                        <input type="text" name="prenom" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nom</label>
+                        <input type="text" name="nom" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rôle</label>
+                        <select name="role" class="form-select">
+                            <option value="jsp">JSP</option>
+                            <option value="formateur">Formateur</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Créer le compte</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5>Liste des membres</h5>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Nom / Prénom</th>
+                            <th>Identifiant</th>
+                            <th>Rôle</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ u.prenom }} {{ u.nom }}</td>
+                            <td>{{ u.username }}</td>
+                            <td><span class="badge bg-{% if u.role == 'admin' %}danger{% elif u.role == 'formateur' %}warning text-dark{% else %}primary{% endif %}">{{ u.role.upper() }}</span></td>
+                            <td>{{ u.email or 'Non renseigné' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body">
+                <h3 class="mb-3">Mon Profil</h3>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Prénom</label>
+                        <input type="text" name="prenom" class="form-control" value="{{ current_user.prenom }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nom</label>
+                        <input type="text" name="nom" class="form-control" value="{{ current_user.nom }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Adresse e-mail (pour le mot de passe oublié)</label>
+                        <input type="email" name="email" class="form-control" value="{{ current_user.email or '' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Enregistrer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
