@@ -56,10 +56,7 @@ def load_user(user_id):
 
 
 with app.app_context():
-  # /!\ Ligne temporaire pour recréer la base de données propre sur Render
-  db.drop_all()
   db.create_all()
-
   if not User.query.filter_by(role='admin').first():
     admin_user = User(
         username='admin',
@@ -242,6 +239,29 @@ def update_jsp_level(jsp_id):
           f'Niveau de {jsp.prenom} {jsp.nom} mis à jour ({new_level}).',
           'success',
       )
+  return redirect(url_for('dashboard_formateur'))
+
+
+@app.route('/formateur/update-jsp-info/<int:jsp_id>', methods=['POST'])
+@login_required
+def update_jsp_info(jsp_id):
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  jsp = User.query.get_or_404(jsp_id)
+  if jsp.role == 'jsp':
+    jsp.email = request.form.get('email')
+    jsp.adresse = request.form.get('adresse')
+    date_n = request.form.get('date_naissance')
+    if date_n:
+      try:
+        jsp.date_naissance = datetime.strptime(date_n, '%Y-%m-%d').date()
+      except ValueError:
+        pass
+    db.session.commit()
+    flash(
+        f'Fiche individuelle de {jsp.prenom} {jsp.nom} mise à jour.',
+        'success',
+    )
   return redirect(url_for('dashboard_formateur'))
 
 

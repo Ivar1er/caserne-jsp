@@ -14,6 +14,8 @@ class User(UserMixin, db.Model):
   nom = db.Column(db.String(80), default='')
   prenom = db.Column(db.String(80), default='')
   email = db.Column(db.String(120), unique=True, nullable=True)
+  date_naissance = db.Column(db.Date, nullable=True)
+  adresse = db.Column(db.String(200), nullable=True)
   first_login = db.Column(db.Boolean, default=True)
 
 
