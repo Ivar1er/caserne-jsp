@@ -13,10 +13,12 @@ class User(UserMixin, db.Model):
   level = db.Column(db.String(10), default='JSP 1')  # 'JSP 1' à 'JSP 4'
   nom = db.Column(db.String(80), default='')
   prenom = db.Column(db.String(80), default='')
-  email = db.Column(db.String(120), unique=True, nullable=True)
+  email = db.Column(db.String(120), nullable=True)
   date_naissance = db.Column(db.Date, nullable=True)
   adresse = db.Column(db.String(200), nullable=True)
-  centre = db.Column(db.String(100), default='CIS Chateau-renard')
+  centre = db.Column(
+      db.String(100), default='Section St Germain / Château-Renard'
+  )
   first_login = db.Column(db.Boolean, default=True)
 
 
@@ -30,6 +32,9 @@ class Event(db.Model):
   created_by = db.Column(db.String(80), nullable=False)
   event_type = db.Column(db.String(20), default='seance')
   target_level = db.Column(db.String(20), default='Tous')
+  centre = db.Column(
+      db.String(100), default='Section St Germain / Château-Renard'
+  )
 
 
 class EventResponse(db.Model):
@@ -37,7 +42,7 @@ class EventResponse(db.Model):
   event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
   jsp_id = db.Column(
       db.Integer, db.ForeignKey('user.id'), nullable=False
-  )  # Utilisé pour JSP et Formateurs
+  )  # JSP ou Formateur
   status = db.Column(db.String(20), default='en_attente')
 
   event = db.relationship(
@@ -56,6 +61,9 @@ class Grade(db.Model):
   jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
   title = db.Column(db.String(150), nullable=False)
   score = db.Column(db.Float, nullable=False)
+  level_attained = db.Column(
+      db.String(10), default='JSP 1'
+  )  # Archivage par niveau
   date = db.Column(db.DateTime, default=datetime.utcnow)
   jsp = db.relationship(
       'User', backref=db.backref('grades', cascade='all, delete-orphan')
@@ -68,6 +76,9 @@ class Course(db.Model):
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
   uploaded_by = db.Column(db.String(80), nullable=False)
+  centre = db.Column(
+      db.String(100), default='Section St Germain / Château-Renard'
+  )
 
 
 class Evaluation(db.Model):
@@ -76,6 +87,9 @@ class Evaluation(db.Model):
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
   uploaded_by = db.Column(db.String(80), nullable=False)
+  centre = db.Column(
+      db.String(100), default='Section St Germain / Château-Renard'
+  )
 
 
 class JspDocument(db.Model):
@@ -85,6 +99,7 @@ class JspDocument(db.Model):
   title = db.Column(db.String(150), nullable=False)
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+  level_attained = db.Column(db.String(10), default='JSP 1')  # Archivage
   jsp = db.relationship(
       'User', foreign_keys=[jsp_id], backref=db.backref('jsp_docs', lazy=True)
   )

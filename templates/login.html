@@ -1,26 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center mt-4">
-    <div class="col-md-4">
-        <div class="card shadow">
-            <div class="card-body text-center">
-                <div class="mb-3">
-                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo JSP" width="100" height="100" class="rounded-circle shadow">
-                </div>
-                <h3 class="mb-4">Connexion</h3>
-                <form method="POST" class="text-start">
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center text-danger mb-4 fw-bold">Connexion - Portail JSP</h3>
+                <form method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Identifiant</label>
-                        <input type="text" name="username" class="form-control" required>
+                        <label class="form-label fw-bold">Centre d'incendie et de secours</label>
+                        <select name="centre" class="form-select" required>
+                            <option value="Section St Germain / Château-Renard" selected>Section St Germain / Château-Renard</option>
+                            <!-- Futurs centres ajoutables ici -->
+                        </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Mot de passe</label>
-                        <input type="password" name="password" class="form-control" required>
+                        <label class="form-label fw-bold">Nom d'utilisateur</label>
+                        <input type="text" name="username" class="form-control" placeholder="Identifiant" required>
                     </div>
-                    <button type="submit" class="btn btn-danger w-100">Se connecter</button>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mot de passe</label>
+                        <input type="password" name="password" class="form-control" placeholder="Mot de passe" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100 py-2 fw-bold">Se connecter</button>
                 </form>
                 <div class="text-center mt-3">
-                    <a href="{{ url_for('forgot_password') }}" class="text-decoration-none text-muted">Mot de passe oublié ?</a>
+                    <a href="{{ url_for('forgot_password') }}" class="text-muted small text-decoration-none">Mot de passe oublié ?</a>
                 </div>
             </div>
         </div>

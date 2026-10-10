@@ -65,7 +65,7 @@ with app.app_context():
         prenom='Nicolas',
         nom='Admin',
         email='admin@caserne.fr',
-        centre='CIS Chateau-renard',
+        centre='Section St Germain / Château-Renard',
         first_login=False,
     )
     db.session.add(admin_user)
@@ -100,11 +100,20 @@ def login():
   if request.method == 'POST':
     username = request.form.get('username')
     password = request.form.get('password')
+    selected_centre = request.form.get('centre')
+
     user = User.query.filter_by(username=username).first()
-    if user and check_password_hash(user.password_hash, password):
+    if (
+        user
+        and check_password_hash(user.password_hash, password)
+        and user.centre == selected_centre
+    ):
       login_user(user)
       return redirect(url_for('index'))
-    flash('Identifiant ou mot de passe incorrect.', 'danger')
+    flash(
+        'Identifiant, mot de passe incorrect ou centre non correspondant.',
+        'danger',
+    )
   return render_template('login.html')
 
 
@@ -147,8 +156,8 @@ def forgot_password():
       user.first_login = True
       db.session.commit()
       flash(
-          f'Un mot de passe provisoire a été envoyé à {email}. (Mode test,'
-          f' provisoire : {temp_pw})',
+          f'Un mot de passe provisoire a été envoyé à {email}. (Provisoire :'
+          f' {temp_pw})',
           'info',
       )
       return redirect(url_for('login'))
@@ -161,13 +170,35 @@ def forgot_password():
 def dashboard_formateur():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
-  jsps = User.query.filter_by(role='jsp').all()
-  formateurs = User.query.filter(
-      User.role.in_(['admin', 'formateur'])
-  ).all()
-  courses = Course.query.order_by(Course.upload_date.desc()).all()
-  evaluations = Evaluation.query.order_by(Evaluation.upload_date.desc()).all()
-  events = Event.query.order_by(Event.date_time.asc()).all()
+  # Filtrage strict par centre
+  jsps = (
+      User.query.filter_by(role='jsp', centre=current_user.centre)
+      .order_by(User.nom)
+      .all()
+  )
+  formateurs = (
+      User.query.filter(
+          User.role.in_(['admin', 'formateur']),
+          User.centre == current_user.centre,
+      )
+      .order_by(User.nom)
+      .all()
+  )
+  courses = (
+      Course.query.filter_by(centre=current_user.centre)
+      .order_by(Course.upload_date.desc())
+      .all()
+  )
+  evaluations = (
+      Evaluation.query.filter_by(centre=current_user.centre)
+      .order_by(Evaluation.upload_date.desc())
+      .all()
+  )
+  events = (
+      Event.query.filter_by(centre=current_user.centre)
+      .order_by(Event.date_time.asc())
+      .all()
+  )
   return render_template(
       'dashboard_formateur.html',
       jsps=jsps,
@@ -188,10 +219,14 @@ def manage_users():
   if request.method == 'POST':
     username = request.form.get('username')
     role = request.form.get('role')
-    level = request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
+    level = (
+        request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
+    )
     nom = request.form.get('nom', '')
     prenom = request.form.get('prenom', '')
-    centre = request.form.get('centre', 'CIS Chateau-renard')
+    centre = request.form.get(
+        'centre', 'Section St Germain / Château-Renard'
+    )
     temp_pw = 'JSPinit2026'
 
     if User.query.filter_by(username=username).first():
@@ -210,8 +245,7 @@ def manage_users():
       db.session.add(new_user)
       db.session.commit()
 
-      # Créer les réponses d'événements pour le nouvel utilisateur (JSP ou Formateur)
-      events = Event.query.all()
+      events = Event.query.filter_by(centre=centre).all()
       for ev in events:
         db.session.add(EventResponse(event_id=ev.id, jsp_id=new_user.id))
       db.session.commit()
@@ -223,7 +257,7 @@ def manage_users():
       )
     return redirect(url_for('manage_users'))
 
-  users = User.query.all()
+  users = User.query.filter_by(centre=current_user.centre).all()
   return render_template('manage_users.html', users=users)
 
 
@@ -236,16 +270,12 @@ def delete_user(user_id):
 
   user_to_delete = User.query.get_or_404(user_id)
   if user_to_delete.id == current_user.id:
-    flash('Vous ne pouvez pas supprimer votre propre compte administrateur.', 'danger')
+    flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
     return redirect(url_for('manage_users'))
 
   db.session.delete(user_to_delete)
   db.session.commit()
-  flash(
-      f'Le compte de {user_to_delete.prenom} {user_to_delete.nom} a été'
-      ' supprimé avec succès.',
-      'success',
-  )
+  flash('Compte supprimé avec succès.', 'success')
   return redirect(url_for('manage_users'))
 
 
@@ -255,13 +285,14 @@ def update_jsp_level(jsp_id):
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
   jsp = User.query.get_or_404(jsp_id)
-  if jsp.role == 'jsp':
+  if jsp.role == 'jsp' and jsp.centre == current_user.centre:
     new_level = request.form.get('level')
     if new_level in ['JSP 1', 'JSP 2', 'JSP 3', 'JSP 4']:
       jsp.level = new_level
       db.session.commit()
       flash(
-          f'Niveau de {jsp.prenom} {jsp.nom} mis à jour ({new_level}).',
+          f'Niveau de {jsp.prenom} {jsp.nom} mis à jour ({new_level}). Ses notes'
+          ' antérieures sont archivées.',
           'success',
       )
   return redirect(url_for('dashboard_formateur'))
@@ -273,7 +304,7 @@ def update_jsp_info(jsp_id):
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
   jsp = User.query.get_or_404(jsp_id)
-  if jsp.role in ['jsp', 'formateur']:
+  if jsp.centre == current_user.centre:
     jsp.email = request.form.get('email')
     jsp.adresse = request.form.get('adresse')
     jsp.centre = request.form.get('centre')
@@ -284,10 +315,7 @@ def update_jsp_info(jsp_id):
       except ValueError:
         pass
     db.session.commit()
-    flash(
-        f'Fiche individuelle de {jsp.prenom} {jsp.nom} mise à jour.',
-        'success',
-    )
+    flash('Fiche mise à jour avec succès.', 'success')
   return redirect(url_for('dashboard_formateur'))
 
 
@@ -296,12 +324,19 @@ def update_jsp_info(jsp_id):
 def add_grade(jsp_id):
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
+  jsp = User.query.get_or_404(jsp_id)
   title = request.form.get('title')
   score_str = request.form.get('score')
   if title and score_str:
     try:
       score = float(score_str)
-      new_grade = Grade(jsp_id=jsp_id, title=title, score=score)
+      # Enregistre avec le niveau actuel du JSP pour archivage automatique par année
+      new_grade = Grade(
+          jsp_id=jsp_id,
+          title=title,
+          score=score,
+          level_attained=jsp.level,
+      )
       db.session.add(new_grade)
       db.session.commit()
       flash('Note enregistrée avec succès.', 'success')
@@ -335,12 +370,15 @@ def create_event():
         created_by=f'{current_user.prenom} {current_user.nom}',
         event_type=event_type,
         target_level=target_level,
+        centre=current_user.centre,
     )
     db.session.add(new_event)
     db.session.commit()
 
-    # Assigner les réponses aux JSP concernés ET à tous les formateurs
-    users = User.query.filter(User.role.in_(['jsp', 'formateur'])).all()
+    users = User.query.filter(
+        User.centre == current_user.centre,
+        User.role.in_(['jsp', 'formateur']),
+    ).all()
     for u in users:
       if (
           u.role == 'formateur'
@@ -349,8 +387,46 @@ def create_event():
       ):
         db.session.add(EventResponse(event_id=new_event.id, jsp_id=u.id))
     db.session.commit()
-
     flash('Événement ou séance publié avec succès.', 'success')
+  return redirect(url_for('dashboard_formateur'))
+
+
+@app.route('/formateur/edit-event/<int:event_id>', methods=['POST'])
+@login_required
+def edit_event(event_id):
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  event = Event.query.get_or_404(event_id)
+  if event.centre == current_user.centre:
+    event.title = request.form.get('title')
+    event.description = request.form.get('description')
+    date_str = request.form.get('date_time')
+    end_str = request.form.get('end_time')
+    event.location = request.form.get('location')
+    event.target_level = request.form.get('target_level', event.target_level)
+
+    if date_str:
+      event.date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+    if end_str:
+      event.end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M')
+    else:
+      event.end_time = None
+
+    db.session.commit()
+    flash('Événement mis à jour avec succès.', 'success')
+  return redirect(url_for('dashboard_formateur'))
+
+
+@app.route('/formateur/delete-event/<int:event_id>', methods=['POST'])
+@login_required
+def delete_event(event_id):
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  event = Event.query.get_or_404(event_id)
+  if event.centre == current_user.centre:
+    db.session.delete(event)
+    db.session.commit()
+    flash('Événement supprimé avec succès.', 'success')
   return redirect(url_for('dashboard_formateur'))
 
 
@@ -368,6 +444,7 @@ def upload_course():
         title=title,
         filename=filename,
         uploaded_by=f'{current_user.prenom} {current_user.nom}',
+        centre=current_user.centre,
     )
     db.session.add(new_course)
     db.session.commit()
@@ -389,10 +466,11 @@ def upload_eval():
         title=title,
         filename=filename,
         uploaded_by=f'{current_user.prenom} {current_user.nom}',
+        centre=current_user.centre,
     )
     db.session.add(new_eval)
     db.session.commit()
-    flash('Contrôle dématérialisé publié avec succès.', 'success')
+    flash('Évaluation publiée avec succès.', 'success')
   return redirect(url_for('dashboard_formateur'))
 
 
@@ -401,14 +479,30 @@ def upload_eval():
 def dashboard_jsp():
   if current_user.role != 'jsp':
     return redirect(url_for('index'))
-  courses = Course.query.order_by(Course.upload_date.desc()).all()
-  evaluations = Evaluation.query.order_by(Evaluation.upload_date.desc()).all()
-  events = Event.query.order_by(Event.date_time.asc()).all()
+  courses = (
+      Course.query.filter_by(centre=current_user.centre)
+      .order_by(Course.upload_date.desc())
+      .all()
+  )
+  evaluations = (
+      Evaluation.query.filter_by(centre=current_user.centre)
+      .order_by(Evaluation.upload_date.desc())
+      .all()
+  )
+  events = (
+      Event.query.filter_by(centre=current_user.centre)
+      .order_by(Event.date_time.asc())
+      .all()
+  )
   grades = Grade.query.filter_by(jsp_id=current_user.id).all()
   responses = {r.event_id: r.status for r in current_user.event_responses}
-  formateurs = User.query.filter(
-      User.role.in_(['admin', 'formateur'])
-  ).all()
+  formateurs = (
+      User.query.filter(
+          User.role.in_(['admin', 'formateur']),
+          User.centre == current_user.centre,
+      )
+      .all()
+  )
   jsp_docs = JspDocument.query.filter_by(jsp_id=current_user.id).all()
 
   return render_template(
@@ -457,6 +551,7 @@ def jsp_upload_doc():
         formateur_id=int(formateur_id) if formateur_id else None,
         title=title,
         filename=filename,
+        level_attained=current_user.level,
     )
     db.session.add(new_doc)
     db.session.commit()
