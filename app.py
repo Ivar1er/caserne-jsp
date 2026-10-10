@@ -15,7 +15,16 @@ from flask_login import (
     login_user,
     logout_user,
 )
-from models import Course, Evaluation, Event, EventResponse, User, db
+from models import (
+    Course,
+    Evaluation,
+    Event,
+    EventResponse,
+    Grade,
+    JspDocument,
+    User,
+    db,
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -24,7 +33,6 @@ app.config['SECRET_KEY'] = os.environ.get(
     'SECRET_KEY', 'cle_secrete_par_defaut_a_changer'
 )
 
-# Gestion de la base de données (compatible SQLite local & PostgreSQL persistant avec pg8000 pour Python 3.14)
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///caserne.db')
 if db_url:
   if db_url.startswith('postgres://'):
@@ -153,10 +161,19 @@ def dashboard_formateur():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
   jsps = User.query.filter_by(role='jsp').all()
+  formateurs = User.query.filter(
+      User.role.in_(['admin', 'formateur'])
+  ).all()
   courses = Course.query.order_by(Course.upload_date.desc()).all()
+  evaluations = Evaluation.query.order_by(Evaluation.upload_date.desc()).all()
   events = Event.query.order_by(Event.date_time.asc()).all()
   return render_template(
-      'dashboard_formateur.html', jsps=jsps, courses=courses, events=events
+      'dashboard_formateur.html',
+      jsps=jsps,
+      formateurs=formateurs,
+      courses=courses,
+      evaluations=evaluations,
+      events=events,
   )
 
 
@@ -164,7 +181,7 @@ def dashboard_formateur():
 @login_required
 def manage_users():
   if current_user.role != 'admin':
-    flash("Accès réservé à l'administrateur.", 'danger')
+    flash("Accès réservé exclusivement à l'administrateur.", 'danger')
     return redirect(url_for('index'))
 
   if request.method == 'POST':
@@ -197,8 +214,8 @@ def manage_users():
         db.session.commit()
 
       flash(
-          f'Compte {username} créé avec succès (Niveau : {level} | Mot de'
-          f' passe : {temp_pw}).',
+          f'Compte {username} créé avec succès (Rôle : {role} | Niveau :'
+          f' {level}).',
           'success',
       )
     return redirect(url_for('manage_users'))
@@ -219,10 +236,70 @@ def update_jsp_level(jsp_id):
       jsp.level = new_level
       db.session.commit()
       flash(
-          f'Niveau de {jsp.prenom} {jsp.nom} mis à jour avec succès ('
-          f'{new_level}).',
+          f'Niveau de {jsp.prenom} {jsp.nom} mis à jour ({new_level}).',
           'success',
       )
+  return redirect(url_for('dashboard_formateur'))
+
+
+@app.route('/formateur/add-grade/<int:jsp_id>', methods=['POST'])
+@login_required
+def add_grade(jsp_id):
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  title = request.form.get('title')
+  score_str = request.form.get('score')
+  if title and score_str:
+    try:
+      score = float(score_str)
+      new_grade = Grade(jsp_id=jsp_id, title=title, score=score)
+      db.session.add(new_grade)
+      db.session.commit()
+      flash('Note enregistrée avec succès.', 'success')
+    except ValueError:
+      flash('Format de note invalide.', 'danger')
+  return redirect(url_for('dashboard_formateur'))
+
+
+@app.route('/formateur/create-event', methods=['POST'])
+@login_required
+def create_event():
+  if current_user.role not in ['admin', 'formateur']:
+    return redirect(url_for('index'))
+  title = request.form.get('title')
+  description = request.form.get('description')
+  date_str = request.form.get('date_time')
+  end_str = request.form.get('end_time')
+  location = request.form.get('location')
+  event_type = request.form.get(
+      'event_type', 'seance'
+  )  # 'calendrier' ou 'seance'
+  target_level = request.form.get('target_level', 'Tous')
+
+  if title and date_str:
+    date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+    end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M') if end_str else None
+    new_event = Event(
+        title=title,
+        description=description,
+        date_time=date_time,
+        end_time=end_time,
+        location=location,
+        created_by=f'{current_user.prenom} {current_user.nom}',
+        event_type=event_type,
+        target_level=target_level,
+    )
+    db.session.add(new_event)
+    db.session.commit()
+
+    # Si c'est une séance ciblée, on initialise les réponses pour les JSP concernés
+    jsps = User.query.filter_by(role='jsp').all()
+    for jsp in jsps:
+      if target_level == 'Tous' or jsp.level == target_level:
+        db.session.add(EventResponse(event_id=new_event.id, jsp_id=jsp.id))
+    db.session.commit()
+
+    flash('Événement ou séance publié avec succès.', 'success')
   return redirect(url_for('dashboard_formateur'))
 
 
@@ -247,9 +324,9 @@ def upload_course():
   return redirect(url_for('dashboard_formateur'))
 
 
-@app.route('/formateur/upload-eval/<int:jsp_id>', methods=['POST'])
+@app.route('/formateur/upload-eval', methods=['POST'])
 @login_required
-def upload_eval(jsp_id):
+def upload_eval():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
   title = request.form.get('title')
@@ -258,48 +335,13 @@ def upload_eval(jsp_id):
     filename = secure_filename(file.filename)
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     new_eval = Evaluation(
-        jsp_id=jsp_id,
         title=title,
         filename=filename,
         uploaded_by=f'{current_user.prenom} {current_user.nom}',
     )
     db.session.add(new_eval)
     db.session.commit()
-    flash('Évaluation déposée avec succès.', 'success')
-  return redirect(url_for('dashboard_formateur'))
-
-
-@app.route('/formateur/create-event', methods=['POST'])
-@login_required
-def create_event():
-  if current_user.role not in ['admin', 'formateur']:
-    return redirect(url_for('index'))
-  title = request.form.get('title')
-  description = request.form.get('description')
-  date_str = request.form.get('date_time')
-  end_str = request.form.get('end_time')
-  location = request.form.get('location')
-
-  if title and date_str:
-    date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-    end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M') if end_str else None
-    new_event = Event(
-        title=title,
-        description=description,
-        date_time=date_time,
-        end_time=end_time,
-        location=location,
-        created_by=f'{current_user.prenom} {current_user.nom}',
-    )
-    db.session.add(new_event)
-    db.session.commit()
-
-    jsps = User.query.filter_by(role='jsp').all()
-    for jsp in jsps:
-      db.session.add(EventResponse(event_id=new_event.id, jsp_id=jsp.id))
-    db.session.commit()
-
-    flash('Événement / Séance créé avec succès.', 'success')
+    flash('Contrôle dématérialisé publié avec succès.', 'success')
   return redirect(url_for('dashboard_formateur'))
 
 
@@ -309,15 +351,24 @@ def dashboard_jsp():
   if current_user.role != 'jsp':
     return redirect(url_for('index'))
   courses = Course.query.order_by(Course.upload_date.desc()).all()
-  evaluations = Evaluation.query.filter_by(jsp_id=current_user.id).all()
+  evaluations = Evaluation.query.order_by(Evaluation.upload_date.desc()).all()
   events = Event.query.order_by(Event.date_time.asc()).all()
+  grades = Grade.query.filter_by(jsp_id=current_user.id).all()
   responses = {r.event_id: r.status for r in current_user.responses}
+  formateurs = User.query.filter(
+      User.role.in_(['admin', 'formateur'])
+  ).all()
+  jsp_docs = JspDocument.query.filter_by(jsp_id=current_user.id).all()
+
   return render_template(
       'dashboard_jsp.html',
       courses=courses,
       evaluations=evaluations,
       events=events,
+      grades=grades,
       responses=responses,
+      formateurs=formateurs,
+      jsp_docs=jsp_docs,
   )
 
 
@@ -333,7 +384,31 @@ def respond_event(event_id):
   if response_entry:
     response_entry.status = status
     db.session.commit()
-    flash('Réponse enregistrée.', 'success')
+    flash('Votre réponse a été enregistrée.', 'success')
+  return redirect(url_for('dashboard_jsp'))
+
+
+@app.route('/jsp/upload-doc', methods=['POST'])
+@login_required
+def jsp_upload_doc():
+  if current_user.role != 'jsp':
+    return redirect(url_for('index'))
+  title = request.form.get('title')
+  formateur_id = request.form.get('formateur_id')
+  file = request.files.get('file')
+
+  if file and title:
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    new_doc = JspDocument(
+        jsp_id=current_user.id,
+        formateur_id=int(formateur_id) if formateur_id else None,
+        title=title,
+        filename=filename,
+    )
+    db.session.add(new_doc)
+    db.session.commit()
+    flash('Document transmis avec succès.', 'success')
   return redirect(url_for('dashboard_jsp'))
 
 

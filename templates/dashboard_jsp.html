@@ -1,68 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Mon Espace JSP - {{ current_user.prenom }} {{ current_user.nom }}</h2>
-<hr>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Espace Personnel JSP - {{ current_user.prenom }} {{ current_user.nom }} <span class="badge bg-danger">{{ current_user.level }}</span></h2>
+</div>
 
-<ul class="nav nav-tabs" id="jspTab" role="tablist">
-    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#calendrier">Calendrier & Événements</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mescours">Cours</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mesevals">Mes Évaluations</button></li>
-</ul>
-
-<div class="tab-content bg-white p-4 border border-top-0 rounded-bottom shadow-sm">
-    <!-- CALENDRIER & ÉVÉNEMENTS -->
-    <div class="tab-pane fade show active" id="calendrier">
-        <h4>Calendrier & Prochaines Séances</h4>
-        <p class="text-muted">Cliquez sur "Présent" ou "Absent" pour répondre à l'appel pour le samedi suivant.</p>
-        <div class="list-group">
-            {% for ev in events %}
-            <div class="list-group-item list-group-item-action flex-column align-items-start mb-3 shadow-sm">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1 text-danger">{{ ev.title }}</h5>
-                    <small class="fw-bold">
-                        {{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }}{% if ev.end_time %} - {{ ev.end_time.strftime('%H:%M') }}{% endif %}
-                    </small>
+<div class="row">
+    <!-- Colonne de gauche : Agenda et Séances -->
+    <div class="col-md-8">
+        <!-- Calendrier & Événements -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-danger text-white fw-bold">📅 Calendrier des Événements & Séances</div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for ev in events %}
+                        {% if ev.target_level == 'Tous' or ev.target_level == current_user.level or ev.event_type == 'calendrier' %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-1 text-danger fw-bold">{{ ev.title }} <small class="text-muted fs-6">({% if ev.event_type == 'calendrier' %}Événement Caserne{% else %}Séance {{ ev.target_level }}{% endif %})</small></h5>
+                                <small class="text-muted">📅 {{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                            </div>
+                            <p class="mb-2" style="white-space: pre-line;">{{ ev.description }}</p>
+                            {% if ev.event_type == 'seance' %}
+                                {% set resp = ev.responses | selectattr("jsp_id", "equalto", current_user.id) | first %}
+                                <form method="POST" action="{{ url_for('respond_event', event_id=ev.id) }}" class="d-flex align-items-center gap-2 mt-2">
+                                    <label class="small fw-bold">Votre présence :</label>
+                                    <select name="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                                        <option value="en_attente" {% if resp and resp.status == 'en_attente' %}selected{% endif %}>En attente</option>
+                                        <option value="present" {% if resp and resp.status == 'present' %}selected{% endif %}>Présent(e)</option>
+                                        <option value="absent" {% if resp and resp.status == 'absent' %}selected{% endif %}>Absent(e)</option>
+                                    </select>
+                                </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
                 </div>
-                <p class="mb-1"><strong>Lieu :</strong> {{ ev.location }}</p>
-                <p class="mb-2" style="white-space: pre-line;">{{ ev.description }}</p>
-                <hr class="my-2">
-                <form method="POST" action="{{ url_for('respond_event', event_id=ev.id) }}" class="d-flex align-items-center gap-2">
-                    <span class="small fw-bold">Votre présence :</span>
-                    <button type="submit" name="status" value="present" class="btn btn-sm btn-outline-success {% if responses.get(ev.id) == 'present' %}active{% endif %}">Présent</button>
-                    <button type="submit" name="status" value="absent" class="btn btn-sm btn-outline-danger {% if responses.get(ev.id) == 'absent' %}active{% endif %}">Absent</button>
-                </form>
             </div>
-            {% endfor %}
         </div>
     </div>
 
-    <!-- COURS -->
-    <div class="tab-pane fade" id="mescours">
-        <h4>Cours & Ressources pédagogiques</h4>
-        <p class="text-muted small">Cliquez sur un titre pour l'ouvrir directement dans le navigateur (ou le télécharger depuis l'onglet).</p>
-        <ul class="list-group">
-            {% for c in courses %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('static', filename='uploads/' + c.filename) }}" target="_blank" class="text-decoration-none fw-bold">{{ c.title }}</a>
-                <small class="text-muted">Par {{ c.uploaded_by }}</small>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+    <!-- Colonne de droite : Mes Notes, Évaluations, Cours et Transmission de documents -->
+    <div class="col-md-4">
+        <!-- Mes Notes -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white fw-bold">📊 Mon Suivi & Mes Notes</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for grade in grades %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>{{ grade.title }}</span>
+                        <span class="badge bg-{% if grade.score >= 12 %}success{% else %}danger{% endif %}">
+                            {{ grade.score }} / 20
+                        </span>
+                    </li>
+                    {% else %}
+                    <p class="text-muted small mb-0">Aucune note enregistrée pour le moment.</p>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
 
-    <!-- ÉVALUATIONS -->
-    <div class="tab-pane fade" id="mesevals">
-        <h4>Mes Évaluations (Consultation seule)</h4>
-        <ul class="list-group">
-            {% for ev in evaluations %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('static', filename='uploads/' + ev.filename) }}" target="_blank" class="text-decoration-none fw-bold text-dark">{{ ev.title }}</a>
-                <span class="badge bg-secondary">Déposé le {{ ev.upload_date.strftime('%d/%m/%Y') }}</span>
-            </li>
-            {% else %}
-            <p class="text-muted">Aucune évaluation disponible pour le moment.</p>
-            {% endfor %}
-        </ul>
+        <!-- Transmettre un document à un formateur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-danger text-white fw-bold">📤 Envoyer un document à un formateur</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('jsp_upload_doc') }}" enctype="multipart/form-data">
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold">Titre du document</label>
+                        <input type="text" name="title" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold">Assigner au formateur</label>
+                        <select name="formateur_id" class="form-select form-select-sm">
+                            <option value="">-- Choisir un formateur --</option>
+                            {% for f in formateurs %}
+                            <option value="{{ f.id }}">{{ f.prenom }} {{ f.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Fichier (PDF, image...)</label>
+                        <input type="file" name="file" class="form-control form-control-sm" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger btn-sm w-100">Transmettre</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Contrôles dématérialisés & Cours -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white fw-bold">📚 Évaluations & Cours</div>
+            <div class="card-body">
+                <h6 class="fw-bold text-danger">Contrôles / Évaluations :</h6>
+                <ul class="list-unstyled mb-3">
+                    {% for ev in evaluations %}
+                    <li>📄 <a href="{{ url_for('static', filename='uploads/' + ev.filename) }}" target="_blank" class="text-decoration-none">{{ ev.title }}</a></li>
+                    {% else %}
+                    <li class="text-muted small">Aucun contrôle publié.</li>
+                    {% endfor %}
+                </ul>
+                <h6 class="fw-bold text-danger">Cours généraux :</h6>
+                <ul class="list-unstyled mb-0">
+                    {% for c in courses %}
+                    <li>📖 <a href="{{ url_for('static', filename='uploads/' + c.filename) }}" target="_blank" class="text-decoration-none">{{ c.title }}</a></li>
+                    {% else %}
+                    <li class="text-muted small">Aucun cours disponible.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
