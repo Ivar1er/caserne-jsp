@@ -27,7 +27,7 @@ class Event(db.Model):
   created_by = db.Column(db.String(80), nullable=False)
   event_type = db.Column(
       db.String(20), default='seance'
-  )  # 'calendrier' (RDV, sport, cérémonie) ou 'seance' (cours)
+  )  # 'calendrier' ou 'seance'
   target_level = db.Column(
       db.String(20), default='Tous'
   )  # 'Tous', 'JSP 1', 'JSP 2', 'JSP 3', 'JSP 4'
@@ -38,17 +38,20 @@ class EventResponse(db.Model):
   event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
   jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
   status = db.Column(db.String(20), default='en_attente')
+
   event = db.relationship(
       'Event', backref=db.backref('responses', cascade='all, delete-orphan')
   )
-  jsp = db.relationship('User', backref=db.backref('responses', lazy=True))
+  jsp = db.relationship(
+      'User', backref=db.backref('event_responses', lazy=True)
+  )
 
 
 class Grade(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
   title = db.Column(db.String(150), nullable=False)
-  score = db.Column(db.Float, nullable=False)  # Note sur 20
+  score = db.Column(db.Float, nullable=False)
   date = db.Column(db.DateTime, default=datetime.utcnow)
   jsp = db.relationship(
       'User', backref=db.backref('grades', cascade='all, delete-orphan')
@@ -74,9 +77,7 @@ class Evaluation(db.Model):
 class JspDocument(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-  formateur_id = db.Column(
-      db.Integer, db.ForeignKey('user.id'), nullable=True
-  )  # Assigné à un formateur spécifique
+  formateur_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
   title = db.Column(db.String(150), nullable=False)
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)

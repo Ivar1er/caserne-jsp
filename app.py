@@ -56,7 +56,10 @@ def load_user(user_id):
 
 
 with app.app_context():
+  # /!\ Ligne temporaire pour recréer la base de données propre sur Render
+  db.drop_all()
   db.create_all()
+
   if not User.query.filter_by(role='admin').first():
     admin_user = User(
         username='admin',
@@ -271,9 +274,7 @@ def create_event():
   date_str = request.form.get('date_time')
   end_str = request.form.get('end_time')
   location = request.form.get('location')
-  event_type = request.form.get(
-      'event_type', 'seance'
-  )  # 'calendrier' ou 'seance'
+  event_type = request.form.get('event_type', 'seance')
   target_level = request.form.get('target_level', 'Tous')
 
   if title and date_str:
@@ -292,7 +293,6 @@ def create_event():
     db.session.add(new_event)
     db.session.commit()
 
-    # Si c'est une séance ciblée, on initialise les réponses pour les JSP concernés
     jsps = User.query.filter_by(role='jsp').all()
     for jsp in jsps:
       if target_level == 'Tous' or jsp.level == target_level:
@@ -354,7 +354,7 @@ def dashboard_jsp():
   evaluations = Evaluation.query.order_by(Evaluation.upload_date.desc()).all()
   events = Event.query.order_by(Event.date_time.asc()).all()
   grades = Grade.query.filter_by(jsp_id=current_user.id).all()
-  responses = {r.event_id: r.status for r in current_user.responses}
+  responses = {r.event_id: r.status for r in current_user.event_responses}
   formateurs = User.query.filter(
       User.role.in_(['admin', 'formateur'])
   ).all()
