@@ -103,13 +103,15 @@ def login():
     selected_centre = request.form.get('centre')
 
     user = User.query.filter_by(username=username).first()
-    if (
-        user
-        and check_password_hash(user.password_hash, password)
-        and user.centre == selected_centre
-    ):
-      login_user(user)
-      return redirect(url_for('index'))
+    if user and check_password_hash(user.password_hash, password):
+      # L'admin peut se connecter quel que soit le centre et bascule dessus
+      if user.role == 'admin' or user.centre == selected_centre:
+        if user.role == 'admin' and user.centre != selected_centre:
+          user.centre = selected_centre
+          db.session.commit()
+        login_user(user)
+        return redirect(url_for('index'))
+
     flash(
         'Identifiant, mot de passe incorrect ou centre non correspondant.',
         'danger',
@@ -170,7 +172,6 @@ def forgot_password():
 def dashboard_formateur():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
-  # Filtrage strict par centre
   jsps = (
       User.query.filter_by(role='jsp', centre=current_user.centre)
       .order_by(User.nom)
@@ -330,7 +331,6 @@ def add_grade(jsp_id):
   if title and score_str:
     try:
       score = float(score_str)
-      # Enregistre avec le niveau actuel du JSP pour archivage automatique par année
       new_grade = Grade(
           jsp_id=jsp_id,
           title=title,
