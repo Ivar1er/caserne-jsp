@@ -18,18 +18,32 @@
     <!-- 1. CALENDRIER GÉNÉRAL -->
     <div class="tab-pane fade show active" id="calendrier">
         <h4 class="text-danger mb-3">Planification des Événements & Rendez-vous</h4>
-        <form method="POST" action="{{ url_for('create_event') }}" class="card p-3 bg-light border-0 mb-4 shadow-sm">
+        <form method="POST" action="{{ url_for('create_event') }}" class="card p-4 bg-light border-0 mb-4 shadow-sm">
             <input type="hidden" name="event_type" value="calendrier">
             <div class="row g-3">
-                <div class="col-md-4"><input type="text" name="title" class="form-control" placeholder="Titre (ex: Rassemblement Sport, Cérémonie...)" required></div>
-                <div class="col-md-3"><input type="datetime-local" name="date_time" class="form-control" required></div>
-                <div class="col-md-3"><input type="text" name="location" class="form-control" placeholder="Lieu"></div>
-                <div class="col-md-2"><button type="submit" class="btn btn-danger w-100">Ajouter</button></div>
-                <div class="col-12"><textarea name="description" class="form-control" placeholder="Détails de l'événement..." rows="2"></textarea></div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Titre de l'événement</label>
+                    <input type="text" name="title" class="form-control" placeholder="ex: Rassemblement Sport, Cérémonie..." required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Date et Heure</label>
+                    <input type="datetime-local" name="date_time" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Lieu</label>
+                    <input type="text" name="location" class="form-control" placeholder="Lieu de l'événement">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold small text-muted">Détails</label>
+                    <textarea name="description" class="form-control" placeholder="Détails de l'événement..." rows="2"></textarea>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-danger w-100">Ajouter au calendrier</button>
+                </div>
             </div>
         </form>
 
-        <h5 class="mt-4">Agenda des mois à venir</h5>
+        <h5 class="mt-4">Agenda des mois à venir (Ordre chronologique)</h5>
         <div class="row">
             {% set calendar_events = events | selectattr("event_type", "equalto", "calendrier") | list %}
             {% for ev in calendar_events %}
@@ -51,11 +65,15 @@
     <!-- 2. SÉANCES PAR NIVEAU -->
     <div class="tab-pane fade" id="seances">
         <h4 class="text-danger mb-3">Créer une Séance Pédagogique</h4>
-        <form method="POST" action="{{ url_for('create_event') }}" class="card p-3 bg-light border-0 mb-4 shadow-sm">
+        <form method="POST" action="{{ url_for('create_event') }}" class="card p-4 bg-light border-0 mb-4 shadow-sm">
             <input type="hidden" name="event_type" value="seance">
             <div class="row g-3">
-                <div class="col-md-3"><input type="text" name="title" class="form-control" placeholder="Titre (ex: Lot de sauvetage)" required></div>
-                <div class="col-md-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Titre de la séance</label>
+                    <input type="text" name="title" class="form-control" placeholder="ex: Lot de sauvetage" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Niveau cible</label>
                     <select name="target_level" class="form-select">
                         <option value="Tous">Tous les JSP</option>
                         <option value="JSP 1">JSP 1 uniquement</option>
@@ -64,11 +82,25 @@
                         <option value="JSP 4">JSP 4 uniquement</option>
                     </select>
                 </div>
-                <div class="col-md-2"><label class="form-label small text-muted mb-0">Début :</label><input type="datetime-local" name="date_time" class="form-control" required></div>
-                <div class="col-md-2"><label class="form-label small text-muted mb-0">Fin :</label><input type="datetime-local" name="end_time" class="form-control"></div>
-                <div class="col-md-3"><input type="text" name="location" class="form-control" placeholder="Lieu"></div>
-                <div class="col-md-2"><button type="submit" class="btn btn-danger w-100 mt-4">Créer</button></div>
-                <div class="col-12"><textarea name="description" class="form-control" placeholder="Programme et thèmes..." rows="2"></textarea></div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Lieu</label>
+                    <input type="text" name="location" class="form-control" placeholder="ex: Salle de cours / Manœuvre">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Début du cours</label>
+                    <input type="datetime-local" name="date_time" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted">Fin du cours</label>
+                    <input type="datetime-local" name="end_time" class="form-control">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-danger w-100">Créer la séance</button>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold small text-muted">Programme et thèmes</label>
+                    <textarea name="description" class="form-control" placeholder="Programme, détails et objectifs de la séance..." rows="2"></textarea>
+                </div>
             </div>
         </form>
 
@@ -79,7 +111,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-danger mb-1">{{ ev.title }} <span class="badge bg-secondary fs-6">{{ ev.target_level }}</span></h5>
-                    <small class="text-muted">📅 {{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }} {% if ev.end_time %} au {{ ev.end_time.strftime('%H:%M') }}{% endif %} | 📍 {{ ev.location or 'Centre' }}</small>
+                    <small class="text-muted">📅 Du {{ ev.date_time.strftime('%d/%m/%Y à %H:%M') }} {% if ev.end_time %}au {{ ev.end_time.strftime('%H:%M') }}{% endif %} | 📍 {{ ev.location or 'Centre' }}</small>
                 </div>
                 <p class="text-muted mb-2" style="white-space: pre-line;">{{ ev.description }}</p>
                 
@@ -243,11 +275,19 @@
     <!-- 4. ÉVALUATIONS -->
     <div class="tab-pane fade" id="evaluations">
         <h4 class="text-danger mb-3">Contrôles et Évaluations Dématérialisés</h4>
-        <form method="POST" action="{{ url_for('upload_eval') }}" enctype="multipart/form-data" class="card p-3 bg-light border-0 mb-4 shadow-sm">
+        <form method="POST" action="{{ url_for('upload_eval') }}" enctype="multipart/form-data" class="card p-4 bg-light border-0 mb-4 shadow-sm">
             <div class="row g-3">
-                <div class="col-md-5"><input type="text" name="title" class="form-control" placeholder="Titre de l'évaluation" required></div>
-                <div class="col-md-5"><input type="file" name="file" class="form-control" required></div>
-                <div class="col-md-2"><button type="submit" class="btn btn-danger w-100">Publier</button></div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold small text-muted">Titre de l'évaluation</label>
+                    <input type="text" name="title" class="form-control" placeholder="Titre de l'évaluation" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold small text-muted">Fichier du contrôle</label>
+                    <input type="file" name="file" class="form-control" required>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-danger w-100">Publier</button>
+                </div>
             </div>
         </form>
 
@@ -270,11 +310,19 @@
     <!-- 5. COURS & RESSOURCES -->
     <div class="tab-pane fade" id="cours">
         <h4 class="text-danger mb-3">Cours & Documents Généraux</h4>
-        <form method="POST" action="{{ url_for('upload_course') }}" enctype="multipart/form-data" class="card p-3 bg-light border-0 mb-4 shadow-sm">
+        <form method="POST" action="{{ url_for('upload_course') }}" enctype="multipart/form-data" class="card p-4 bg-light border-0 mb-4 shadow-sm">
             <div class="row g-3">
-                <div class="col-md-5"><input type="text" name="title" class="form-control" placeholder="Titre du cours" required></div>
-                <div class="col-md-5"><input type="file" name="file" class="form-control" required></div>
-                <div class="col-md-2"><button type="submit" class="btn btn-danger w-100">Envoyer</button></div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold small text-muted">Titre du cours</label>
+                    <input type="text" name="title" class="form-control" placeholder="Titre du cours" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold small text-muted">Fichier du cours</label>
+                    <input type="file" name="file" class="form-control" required>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-danger w-100">Envoyer</button>
+                </div>
             </div>
         </form>
 
