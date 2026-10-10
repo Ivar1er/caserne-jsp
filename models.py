@@ -16,6 +16,7 @@ class User(UserMixin, db.Model):
   email = db.Column(db.String(120), unique=True, nullable=True)
   date_naissance = db.Column(db.Date, nullable=True)
   adresse = db.Column(db.String(200), nullable=True)
+  centre = db.Column(db.String(100), default='CIS Chateau-renard')
   first_login = db.Column(db.Boolean, default=True)
 
 
@@ -27,25 +28,26 @@ class Event(db.Model):
   end_time = db.Column(db.DateTime, nullable=True)
   location = db.Column(db.String(150), nullable=True)
   created_by = db.Column(db.String(80), nullable=False)
-  event_type = db.Column(
-      db.String(20), default='seance'
-  )  # 'calendrier' ou 'seance'
-  target_level = db.Column(
-      db.String(20), default='Tous'
-  )  # 'Tous', 'JSP 1', 'JSP 2', 'JSP 3', 'JSP 4'
+  event_type = db.Column(db.String(20), default='seance')
+  target_level = db.Column(db.String(20), default='Tous')
 
 
 class EventResponse(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
-  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+  jsp_id = db.Column(
+      db.Integer, db.ForeignKey('user.id'), nullable=False
+  )  # Utilisé pour JSP et Formateurs
   status = db.Column(db.String(20), default='en_attente')
 
   event = db.relationship(
       'Event', backref=db.backref('responses', cascade='all, delete-orphan')
   )
   jsp = db.relationship(
-      'User', backref=db.backref('event_responses', lazy=True)
+      'User',
+      backref=db.backref(
+          'event_responses', cascade='all, delete-orphan', lazy=True
+      ),
   )
 
 

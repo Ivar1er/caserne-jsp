@@ -65,6 +65,7 @@ with app.app_context():
         prenom='Nicolas',
         nom='Admin',
         email='admin@caserne.fr',
+        centre='CIS Chateau-renard',
         first_login=False,
     )
     db.session.add(admin_user)
@@ -190,6 +191,7 @@ def manage_users():
     level = request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
     nom = request.form.get('nom', '')
     prenom = request.form.get('prenom', '')
+    centre = request.form.get('centre', 'CIS Chateau-renard')
     temp_pw = 'JSPinit2026'
 
     if User.query.filter_by(username=username).first():
@@ -202,26 +204,49 @@ def manage_users():
           level=level,
           nom=nom,
           prenom=prenom,
+          centre=centre,
           first_login=True,
       )
       db.session.add(new_user)
       db.session.commit()
 
-      if role == 'jsp':
-        events = Event.query.all()
-        for ev in events:
-          db.session.add(EventResponse(event_id=ev.id, jsp_id=new_user.id))
-        db.session.commit()
+      # Créer les réponses d'événements pour le nouvel utilisateur (JSP ou Formateur)
+      events = Event.query.all()
+      for ev in events:
+        db.session.add(EventResponse(event_id=ev.id, jsp_id=new_user.id))
+      db.session.commit()
 
       flash(
-          f'Compte {username} créé avec succès (Rôle : {role} | Niveau :'
-          f' {level}).',
+          f'Compte {username} créé avec succès (Centre : {centre} | Rôle :'
+          f' {role}).',
           'success',
       )
     return redirect(url_for('manage_users'))
 
   users = User.query.all()
   return render_template('manage_users.html', users=users)
+
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+  if current_user.role != 'admin':
+    flash("Accès réservé exclusivement à l'administrateur.", 'danger')
+    return redirect(url_for('index'))
+
+  user_to_delete = User.query.get_or_404(user_id)
+  if user_to_delete.id == current_user.id:
+    flash('Vous ne pouvez pas supprimer votre propre compte administrateur.', 'danger')
+    return redirect(url_for('manage_users'))
+
+  db.session.delete(user_to_delete)
+  db.session.commit()
+  flash(
+      f'Le compte de {user_to_delete.prenom} {user_to_delete.nom} a été'
+      ' supprimé avec succès.',
+      'success',
+  )
+  return redirect(url_for('manage_users'))
 
 
 @app.route('/formateur/update-level/<int:jsp_id>', methods=['POST'])
@@ -248,9 +273,10 @@ def update_jsp_info(jsp_id):
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
   jsp = User.query.get_or_404(jsp_id)
-  if jsp.role == 'jsp':
+  if jsp.role in ['jsp', 'formateur']:
     jsp.email = request.form.get('email')
     jsp.adresse = request.form.get('adresse')
+    jsp.centre = request.form.get('centre')
     date_n = request.form.get('date_naissance')
     if date_n:
       try:
@@ -313,10 +339,15 @@ def create_event():
     db.session.add(new_event)
     db.session.commit()
 
-    jsps = User.query.filter_by(role='jsp').all()
-    for jsp in jsps:
-      if target_level == 'Tous' or jsp.level == target_level:
-        db.session.add(EventResponse(event_id=new_event.id, jsp_id=jsp.id))
+    # Assigner les réponses aux JSP concernés ET à tous les formateurs
+    users = User.query.filter(User.role.in_(['jsp', 'formateur'])).all()
+    for u in users:
+      if (
+          u.role == 'formateur'
+          or target_level == 'Tous'
+          or u.level == target_level
+      ):
+        db.session.add(EventResponse(event_id=new_event.id, jsp_id=u.id))
     db.session.commit()
 
     flash('Événement ou séance publié avec succès.', 'success')
@@ -395,8 +426,6 @@ def dashboard_jsp():
 @app.route('/jsp/respond-event/<int:event_id>', methods=['POST'])
 @login_required
 def respond_event(event_id):
-  if current_user.role != 'jsp':
-    return redirect(url_for('index'))
   status = request.form.get('status')
   response_entry = EventResponse.query.filter_by(
       event_id=event_id, jsp_id=current_user.id
@@ -405,7 +434,10 @@ def respond_event(event_id):
     response_entry.status = status
     db.session.commit()
     flash('Votre réponse a été enregistrée.', 'success')
-  return redirect(url_for('dashboard_jsp'))
+  if current_user.role == 'jsp':
+    return redirect(url_for('dashboard_jsp'))
+  else:
+    return redirect(url_for('dashboard_formateur'))
 
 
 @app.route('/jsp/upload-doc', methods=['POST'])
@@ -439,6 +471,7 @@ def profile():
     current_user.nom = request.form.get('nom')
     current_user.prenom = request.form.get('prenom')
     current_user.email = request.form.get('email')
+    current_user.centre = request.form.get('centre')
     db.session.commit()
     flash('Informations mises à jour.', 'success')
     return redirect(url_for('index'))

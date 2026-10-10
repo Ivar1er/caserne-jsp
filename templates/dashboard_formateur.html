@@ -2,6 +2,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Espace Formateur / Administrateur</h2>
+    <span class="badge bg-danger fs-6">Centre : {{ current_user.centre }}</span>
 </div>
 
 <!-- Navigation principale par onglets -->
@@ -23,7 +24,7 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label fw-bold small text-muted">Titre de l'événement</label>
-                    <input type="text" name="title" class="form-control" placeholder="ex: Rassemblement Sport, Cérémonie..." required>
+                    <input type="text" name="title" class="form-control" placeholder="ex: Cérémonie, Rassemblement..." required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold small text-muted">Date et Heure</label>
@@ -84,7 +85,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold small text-muted">Lieu</label>
-                    <input type="text" name="location" class="form-control" placeholder="ex: Salle de cours / Manœuvre">
+                    <input type="text" name="location" class="form-control" placeholder="ex: Salle de cours">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold small text-muted">Début du cours</label>
@@ -99,7 +100,7 @@
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold small text-muted">Programme et thèmes</label>
-                    <textarea name="description" class="form-control" placeholder="Programme, détails et objectifs de la séance..." rows="2"></textarea>
+                    <textarea name="description" class="form-control" placeholder="Programme, détails et objectifs..." rows="2"></textarea>
                 </div>
             </div>
         </form>
@@ -115,11 +116,22 @@
                 </div>
                 <p class="text-muted mb-2" style="white-space: pre-line;">{{ ev.description }}</p>
                 
+                <!-- Formateur : Pouvoir renseigner sa propre présence -->
+                <div class="bg-light p-2 rounded mb-3 d-flex align-items-center justify-content-between">
+                    <span class="small fw-bold">Mon statut (Formateur) :</span>
+                    <form method="POST" action="{{ url_for('respond_event', event_id=ev.id) }}" class="d-inline">
+                        {% set my_resp = ev.responses | selectattr("jsp_id", "equalto", current_user.id) | first %}
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="submit" name="status" value="present" class="btn btn-{% if my_resp and my_resp.status == 'present' %}success{% else %}outline-success{% endif %}">Présent</button>
+                            <button type="submit" name="status" value="absent" class="btn btn-{% if my_resp and my_resp.status == 'absent' %}danger{% else %}outline-danger{% endif %}">Absent</button>
+                        </div>
+                    </form>
+                </div>
+
                 <details>
-                    <summary class="fw-bold text-primary" style="cursor: pointer;">Afficher les réponses aux présences</summary>
+                    <summary class="fw-bold text-primary" style="cursor: pointer;">Afficher les réponses détaillées (JSP & Formateurs)</summary>
                     <div class="row mt-3">
                         {% if ev.target_level == 'Tous' %}
-                            <!-- Afficher tous les niveaux si "Tous" est sélectionné -->
                             {% for lvl in ['JSP 1', 'JSP 2', 'JSP 3', 'JSP 4'] %}
                             <div class="col-md-3">
                                 <div class="card bg-light border-0 p-2">
@@ -127,7 +139,7 @@
                                     <ul class="list-unstyled small mb-0">
                                         {% set found = namespace(value=false) %}
                                         {% for resp in ev.responses %}
-                                            {% if resp.jsp.level == lvl %}
+                                            {% if resp.jsp.role == 'jsp' and resp.jsp.level == lvl %}
                                                 {% set found.value = true %}
                                                 <li class="d-flex justify-content-between py-1 border-bottom">
                                                     <span>{{ resp.jsp.prenom }} {{ resp.jsp.nom }}</span>
@@ -143,14 +155,13 @@
                             </div>
                             {% endfor %}
                         {% else %}
-                            <!-- Afficher uniquement le niveau ciblé par la séance -->
                             <div class="col-md-6">
                                 <div class="card bg-light border-0 p-2">
-                                    <h6 class="text-danger border-bottom pb-1">Réponses - {{ ev.target_level }}</h6>
+                                    <h6 class="text-danger border-bottom pb-1">JSP - {{ ev.target_level }}</h6>
                                     <ul class="list-unstyled small mb-0">
                                         {% set found = namespace(value=false) %}
                                         {% for resp in ev.responses %}
-                                            {% if resp.jsp.level == ev.target_level %}
+                                            {% if resp.jsp.role == 'jsp' and resp.jsp.level == ev.target_level %}
                                                 {% set found.value = true %}
                                                 <li class="d-flex justify-content-between py-1 border-bottom">
                                                     <span>{{ resp.jsp.prenom }} {{ resp.jsp.nom }}</span>
@@ -165,6 +176,29 @@
                                 </div>
                             </div>
                         {% endif %}
+
+                        <!-- Bloc Formateurs -->
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 p-2">
+                                <h6 class="text-dark border-bottom pb-1 fw-bold">Formateurs</h6>
+                                <ul class="list-unstyled small mb-0">
+                                    {% set f_found = namespace(value=false) %}
+                                    {% for resp in ev.responses %}
+                                        {% if resp.jsp.role in ['admin', 'formateur'] %}
+                                            {% set f_found.value = true %}
+                                            <li class="d-flex justify-content-between py-1 border-bottom">
+                                                <span>{{ resp.jsp.prenom }} {{ resp.jsp.nom }}</span>
+                                                <span class="badge bg-{% if resp.status == 'present' %}success{% elif resp.status == 'absent' %}danger{% else %}secondary{% endif %}">
+                                                    {{ resp.status }}
+                                                </span>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not f_found.value %}<li class="text-muted fst-italic">Aucun formateur</li>{% endif %}
+                                </ul>
+                            </div>
+                        </div>
+
                     </div>
                 </details>
             </div>
@@ -174,16 +208,18 @@
 
     <!-- 3. FICHE INDIVIDUELLE -->
     <div class="tab-pane fade" id="suivi">
-        <h4 class="text-danger mb-3">Fiches Individuelles des JSP</h4>
+        <h4 class="text-danger mb-3">Fiches Individuelles & Gestion des Comptes</h4>
         
         <ul class="nav nav-pills mb-3" id="jspTab" role="tablist">
             <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#lvl1">JSP 1</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#lvl2">JSP 2</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#lvl3">JSP 3</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#lvl4">JSP 4</button></li>
+            <li class="nav-item"><button class="nav-link bg-dark text-white" data-bs-toggle="pill" data-bs-target="#lvlFormateurs">Formateurs / Admins</button></li>
         </ul>
 
         <div class="tab-content">
+            <!-- Boucle JSP 1 à 4 -->
             {% for lvl in ['JSP 1', 'JSP 2', 'JSP 3', 'JSP 4'] %}
             {% set lvl_idx = loop.index %}
             <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="lvl{{ lvl_idx }}">
@@ -195,36 +231,46 @@
                             <div class="accordion-item shadow-sm mb-2">
                                 <h2 class="accordion-header">
                                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#jspCollapse{{ jsp.id }}">
-                                        {{ jsp.prenom }} {{ jsp.nom }} ({{ jsp.username }}) - Niveau : {{ jsp.level }}
+                                        {{ jsp.prenom }} {{ jsp.nom }} ({{ jsp.username }}) - Centre : {{ jsp.centre }}
                                     </button>
                                 </h2>
                                 <div id="jspCollapse{{ jsp.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionJsp{{ lvl_idx }}">
                                     <div class="accordion-body bg-light">
                                         
-                                        <!-- Coordonnées et informations modifiables -->
+                                        <!-- Coordonnées et infos modifiables -->
                                         <form method="POST" action="{{ url_for('update_jsp_info', jsp_id=jsp.id) }}" class="bg-white p-3 rounded mb-3 shadow-sm">
-                                            <h6 class="text-danger fw-bold mb-2">Coordonnées et Infos personnelles</h6>
+                                            <h6 class="text-danger fw-bold mb-2">Coordonnées & Centre</h6>
                                             <div class="row g-2">
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label small">Email :</label>
                                                     <input type="email" name="email" class="form-control form-control-sm" value="{{ jsp.email or '' }}">
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label small">Date de naissance :</label>
                                                     <input type="date" name="date_naissance" class="form-control form-control-sm" value="{{ jsp.date_naissance or '' }}">
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label small">Adresse :</label>
                                                     <input type="text" name="adresse" class="form-control form-control-sm" value="{{ jsp.adresse or '' }}">
                                                 </div>
-                                                <div class="col-12 mt-2">
+                                                <div class="col-md-3">
+                                                    <label class="form-label small">Centre d'incendie :</label>
+                                                    <input type="text" name="centre" class="form-control form-control-sm" value="{{ jsp.centre or '' }}">
+                                                </div>
+                                                <div class="col-12 mt-2 d-flex justify-content-between align-items-center">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">Mettre à jour la fiche</button>
+                                        </form>
+                                                    <!-- Bouton Supprimer le compte (Admin uniquement) -->
+                                                    {% if current_user.role == 'admin' %}
+                                                    <form method="POST" action="{{ url_for('delete_user', user_id=jsp.id) }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement ce compte ?');">
+                                                        <button type="submit" class="btn btn-sm btn-danger">Supprimer le compte</button>
+                                                    </form>
+                                                    {% endif %}
                                                 </div>
                                             </div>
-                                        </form>
 
-                                        <!-- Notes et contrôles (Validé >= 12) -->
-                                        <h6 class="fw-bold">Notes et Contrôles (Seuil de validation : 12/20) :</h6>
+                                        <!-- Notes et contrôles -->
+                                        <h6 class="fw-bold mt-3">Notes et Contrôles (Seuil de validation : 12/20) :</h6>
                                         <ul class="list-group mb-3">
                                             {% for grade in jsp.grades %}
                                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -238,23 +284,19 @@
                                             {% endfor %}
                                         </ul>
 
-                                        <!-- Ajouter une note -->
                                         <form method="POST" action="{{ url_for('add_grade', jsp_id=jsp.id) }}" class="row g-2 mb-3 bg-white p-2 rounded">
                                             <div class="col-md-6"><input type="text" name="title" class="form-control form-control-sm" placeholder="Intitulé du contrôle" required></div>
                                             <div class="col-md-4"><input type="number" step="0.5" max="20" min="0" name="score" class="form-control form-control-sm" placeholder="Note (/20)" required></div>
                                             <div class="col-md-2"><button type="submit" class="btn btn-sm btn-dark w-100">Ajouter</button></div>
                                         </form>
 
-                                        <!-- Documents du JSP -->
+                                        <!-- Documents -->
                                         <h6 class="fw-bold mt-3">Documents de la fiche :</h6>
                                         <ul class="list-group">
                                             {% for doc in jsp.jsp_docs %}
                                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                                 <a href="{{ url_for('static', filename='uploads/' + doc.filename) }}" target="_blank" class="text-decoration-none fw-bold">{{ doc.title }}</a>
-                                                <small class="text-muted">
-                                                    {% if doc.formateur %}Destiné à : {{ doc.formateur.prenom }} {{ doc.formateur.nom }}{% else %}Général{% endif %} 
-                                                    ({{ doc.upload_date.strftime('%d/%m/%Y') }})
-                                                </small>
+                                                <small class="text-muted">({{ doc.upload_date.strftime('%d/%m/%Y') }})</small>
                                             </li>
                                             {% else %}
                                             <li class="list-group-item text-muted">Aucun document associé.</li>
@@ -269,6 +311,47 @@
                 </div>
             </div>
             {% endfor %}
+
+            <!-- Onglet Formateurs / Admins -->
+            <div class="tab-pane fade" id="lvlFormateurs">
+                <div class="accordion" id="accordionFormateurs">
+                    {% for form in formateurs %}
+                    <div class="accordion-item shadow-sm mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#formCollapse{{ form.id }}">
+                                🧑‍🚒 {{ form.prenom }} {{ form.nom }} ({{ form.username }}) - Rôle : {{ form.role | upper }} - Centre : {{ form.centre }}
+                            </button>
+                        </h2>
+                        <div id="formCollapse{{ form.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionFormateurs">
+                            <div class="accordion-body bg-light">
+                                <form method="POST" action="{{ url_for('update_jsp_info', jsp_id=form.id) }}" class="bg-white p-3 rounded mb-3 shadow-sm">
+                                    <h6 class="text-danger fw-bold mb-2">Informations Formateur</h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Email :</label>
+                                            <input type="email" name="email" class="form-control form-control-sm" value="{{ form.email or '' }}">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Centre :</label>
+                                            <input type="text" name="centre" class="form-control form-control-sm" value="{{ form.centre or '' }}">
+                                        </div>
+                                        <div class="col-12 mt-2 d-flex justify-content-between align-items-center">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Mettre à jour</button>
+                                </form>
+                                            {% if current_user.role == 'admin' and form.id != current_user.id %}
+                                            <form method="POST" action="{{ url_for('delete_user', user_id=form.id) }}" onsubmit="return confirm('Supprimer ce formateur ?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">Supprimer le compte</button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -278,11 +361,11 @@
         <form method="POST" action="{{ url_for('upload_eval') }}" enctype="multipart/form-data" class="card p-4 bg-light border-0 mb-4 shadow-sm">
             <div class="row g-3">
                 <div class="col-md-5">
-                    <label class="form-label fw-bold small text-muted">Titre de l'évaluation</label>
+                    <label class="form-label fw-bold small text-muted">Titre</label>
                     <input type="text" name="title" class="form-control" placeholder="Titre de l'évaluation" required>
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label fw-bold small text-muted">Fichier du contrôle</label>
+                    <label class="form-label fw-bold small text-muted">Fichier PDF</label>
                     <input type="file" name="file" class="form-control" required>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -317,7 +400,7 @@
                     <input type="text" name="title" class="form-control" placeholder="Titre du cours" required>
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label fw-bold small text-muted">Fichier du cours</label>
+                    <label class="form-label fw-bold small text-muted">Fichier</label>
                     <input type="file" name="file" class="form-control" required>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
