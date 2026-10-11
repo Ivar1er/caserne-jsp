@@ -1,25 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <h2 class="text-danger fw-bold mb-4">Super-Administration : Sections & Modules SaaS</h2>
+    <h2 class="text-danger fw-bold mb-4">Super-Administration : Sections & Modules </h2>
 
     <!-- Messages Flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    
 
     <!-- 1. Créer une Section -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-dark text-white fw-bold">Créer un nouveau Centre / Section</div>
         <div class="card-body bg-light">
-            <form method="POST" class="row g-3">
+            <form method="POST" class="row g-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="create_section">
                 <div class="col-md-9">
                     <input type="text" name="nom" class="form-control" placeholder="ex: Section St Germain / Château-Renard" required>
@@ -33,7 +24,7 @@
 
     <!-- 2. Activation des 10 Modules & Suppression par Section -->
     <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-danger text-white fw-bold">Gestion des Sections & Modules (Feature Flags)</div>
+        <div class="card-header bg-danger text-white fw-bold">Gestion des Sections & Modules </div>
         <div class="card-body">
             <div class="accordion" id="accordionSections">
                 {% for sec in sections %}
@@ -42,13 +33,13 @@
                         <button class="accordion-button collapsed fw-bold flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#sec{{ sec.id }}">
                             📍 {{ sec.nom }}
                         </button>
-                        <form action="{{ url_for('delete_section', section_id=sec.id) }}" method="POST" class="px-3" onsubmit="return confirm('ATTENTION : Supprimer cette section supprimera aussi tous ses utilisateurs et événements associés. Continuer ?');">
+                        <form action="{{ url_for('delete_section', section_id=sec.id) }}" method="POST" class="px-3" onsubmit="return confirm('ATTENTION : Supprimer cette section supprimera aussi tous ses utilisateurs et événements associés. Continuer ?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger fw-bold">Supprimer la section</button>
                         </form>
                     </h2>
                     <div id="sec{{ sec.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionSections">
-                        <div class="accordion-body bg-light">
-                            <form method="POST">
+                        <div class="accordion-body bg-light"><form method="POST" action="{{ url_for('select_section', section_id=sec.id) }}" class="mb-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger">Ouvrir cette section</button></form>
+                            <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="action" value="toggle_modules">
                                 <input type="hidden" name="section_id" value="{{ sec.id }}">
                                 
@@ -58,10 +49,10 @@
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_fiches" id="c3_{{ sec.id }}" {% if sec.module_fiches %}checked{% endif %}><label class="form-check-label fw-bold" for="c3_{{ sec.id }}">📁 Fiches Individuelles</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_evaluations" id="c4_{{ sec.id }}" {% if sec.module_evaluations %}checked{% endif %}><label class="form-check-label fw-bold" for="c4_{{ sec.id }}">📝 Évaluations</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_cours" id="c5_{{ sec.id }}" {% if sec.module_cours %}checked{% endif %}><label class="form-check-label fw-bold" for="c5_{{ sec.id }}">📚 Cours & Ressources</label></div></div>
-                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_livret" id="c6_{{ sec.id }}" {% if sec.module_livret %}checked{% endif %}><label class="form-check-label fw-bold" for="c6_{{ sec.id }}">🏅 Livret de Progression (UE)</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_livret" id="c6_{{ sec.id }}" {% if sec.module_livret %}checked{% endif %}><label class="form-check-label fw-bold" for="c6_{{ sec.id }}">🏅 Livret de Progression</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_materiel" id="c7_{{ sec.id }}" {% if sec.module_materiel %}checked{% endif %}><label class="form-check-label fw-bold" for="c7_{{ sec.id }}">🎽 Gestion Matériel & EPI</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_stats" id="c8_{{ sec.id }}" {% if sec.module_stats %}checked{% endif %}><label class="form-check-label fw-bold" for="c8_{{ sec.id }}">📈 Statistiques & Reporting</label></div></div>
-                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_alerte" id="c9_{{ sec.id }}" {% if sec.module_alerte %}checked{% endif %}><label class="form-check-label fw-bold" for="c9_{{ sec.id }}">📢 Centre d'Alerte</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_alerte" id="c9_{{ sec.id }}" {% if sec.module_alerte %}checked{% endif %}><label class="form-check-label fw-bold" for="c9_{{ sec.id }}">📢 Alertes du portail</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_tresorerie" id="c10_{{ sec.id }}" {% if sec.module_tresorerie %}checked{% endif %}><label class="form-check-label fw-bold" for="c10_{{ sec.id }}">💶 Trésorerie & Cotisations</label></div></div>
                                 </div>
                                 <button type="submit" class="btn btn-sm btn-dark fw-bold">Enregistrer les modules</button>
@@ -78,13 +69,13 @@
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-dark text-white fw-bold">Créer un Compte (Formateur ou JSP)</div>
         <div class="card-body bg-light">
-            <form method="POST" action="{{ url_for('admin_create_user') }}" class="row g-3">
+            <form method="POST" action="{{ url_for('admin_create_user') }}" class="row g-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-md-3"><label class="form-label small fw-bold">Identifiant</label><input type="text" name="username" class="form-control" required></div>
                 <div class="col-md-2"><label class="form-label small fw-bold">Prénom</label><input type="text" name="prenom" class="form-control" required></div>
                 <div class="col-md-2"><label class="form-label small fw-bold">Nom</label><input type="text" name="nom" class="form-control" required></div>
                 <div class="col-md-2"><label class="form-label small fw-bold">Rôle</label><select name="role" class="form-select"><option value="jsp">JSP</option><option value="formateur">Formateur</option></select></div>
                 <div class="col-md-3"><label class="form-label small fw-bold">Section</label><select name="section_id" class="form-select">{% for sec in sections %}<option value="{{ sec.id }}">{{ sec.nom }}</option>{% endfor %}</select></div>
-                <div class="col-12"><button type="submit" class="btn btn-danger fw-bold">Créer le compte</button></div>
+                <div class="col-md-3"><label class="form-label small fw-bold">Niveau (JSP)</label><select name="level" class="form-select">{% for level in levels %}<option>{{ level }}</option>{% endfor %}</select></div><div class="col-12"><button type="submit" class="btn btn-danger fw-bold">Créer le compte</button></div>
             </form>
         </div>
     </div>
@@ -116,8 +107,8 @@
                             </td>
                             <td>{{ u.section.nom if u.section else 'Global (Admin)' }}</td>
                             <td class="text-end">
-                                {% if u.id != current_user.id %}
-                                <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                                {% if u.id != current_user.id and u.role != 'admin' %}<form method="POST" action="{{ url_for('admin_reset_user',user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Réinitialiser le mot de passe</button></form>
+                                <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet utilisateur ?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
                                 </form>
                                 {% endif %}
