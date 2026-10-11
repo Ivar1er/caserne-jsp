@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <h2 class="text-danger fw-bold mb-4">Super-Administration : Sections & Modules SaaS</h2>
+
+    <!-- Créer une Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-dark text-white fw-bold">Créer un nouveau Centre / Section</div>
+        <div class="card-body bg-light">
+            <form method="POST" class="row g-3">
+                <input type="hidden" name="action" value="create_section">
+                <div class="col-md-9"><input type="text" name="nom" class="form-control" placeholder="ex: CIS Montargis" required></div>
+                <div class="col-md-3"><button type="submit" class="btn btn-danger w-100">Créer</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Activation des 10 Modules par Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-danger text-white fw-bold">Activation des Modules par Section</div>
+        <div class="card-body">
+            <div class="accordion" id="accordionSections">
+                {% for sec in sections %}
+                <div class="accordion-item mb-2 border">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sec{{ sec.id }}">
+                            📍 {{ sec.nom }}
+                        </button>
+                    </h2>
+                    <div id="sec{{ sec.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionSections">
+                        <div class="accordion-body bg-light">
+                            <form method="POST">
+                                <input type="hidden" name="action" value="toggle_modules">
+                                <input type="hidden" name="section_id" value="{{ sec.id }}">
+                                
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_calendrier" id="c1_{{ sec.id }}" {% if sec.module_calendrier %}checked{% endif %}><label class="form-check-label fw-bold" for="c1_{{ sec.id }}">📅 Calendrier</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_seances" id="c2_{{ sec.id }}" {% if sec.module_seances %}checked{% endif %}><label class="form-check-label fw-bold" for="c2_{{ sec.id }}">🚒 Séances & Présences</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_fiches" id="c3_{{ sec.id }}" {% if sec.module_fiches %}checked{% endif %}><label class="form-check-label fw-bold" for="c3_{{ sec.id }}">📁 Fiches Individuelles</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_evaluations" id="c4_{{ sec.id }}" {% if sec.module_evaluations %}checked{% endif %}><label class="form-check-label fw-bold" for="c4_{{ sec.id }}">📝 Évaluations</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_cours" id="c5_{{ sec.id }}" {% if sec.module_cours %}checked{% endif %}><label class="form-check-label fw-bold" for="c5_{{ sec.id }}">📚 Cours & Ressources</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_livret" id="c6_{{ sec.id }}" {% if sec.module_livret %}checked{% endif %}><label class="form-check-label fw-bold" for="c6_{{ sec.id }}">🏅 Livret de Progression (UE)</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_materiel" id="c7_{{ sec.id }}" {% if sec.module_materiel %}checked{% endif %}><label class="form-check-label fw-bold" for="c7_{{ sec.id }}">🎽 Gestion Matériel & EPI</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_stats" id="c8_{{ sec.id }}" {% if sec.module_stats %}checked{% endif %}><label class="form-check-label fw-bold" for="c8_{{ sec.id }}">📈 Statistiques & Reporting</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_alerte" id="c9_{{ sec.id }}" {% if sec.module_alerte %}checked{% endif %}><label class="form-check-label fw-bold" for="c9_{{ sec.id }}">📢 Centre d'Alerte</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="module_tresorerie" id="c10_{{ sec.id }}" {% if sec.module_tresorerie %}checked{% endif %}><label class="form-check-label fw-bold" for="c10_{{ sec.id }}">💶 Trésorerie & Cotisations</label></div></div>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-dark">Enregistrer les modules</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Création de Compte -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white fw-bold">Créer un Compte (Formateur ou JSP)</div>
+        <div class="card-body bg-light">
+            <form method="POST" action="{{ url_for('admin_create_user') }}" class="row g-3">
+                <div class="col-md-3"><label class="form-label small fw-bold">Identifiant</label><input type="text" name="username" class="form-control" required></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Prénom</label><input type="text" name="prenom" class="form-control" required></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Nom</label><input type="text" name="nom" class="form-control" required></div>
+                <div class="col-md-2"><label class="form-label small fw-bold">Rôle</label><select name="role" class="form-select"><option value="jsp">JSP</option><option value="formateur">Formateur</option></select></div>
+                <div class="col-md-3"><label class="form-label small fw-bold">Section</label><select name="section_id" class="form-select">{% for sec in sections %}<option value="{{ sec.id }}">{{ sec.nom }}</option>{% endfor %}</select></div>
+                <div class="col-12"><button type="submit" class="btn btn-danger fw-bold">Créer le compte</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
