@@ -1,29 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center mt-4">
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-body">
-                <h3 class="mb-3">Mon Profil</h3>
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Prénom</label>
-                        <input type="text" name="prenom" class="form-control" value="{{ current_user.prenom }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nom</label>
-                        <input type="text" name="nom" class="form-control" value="{{ current_user.nom }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Adresse e-mail (pour le mot de passe oublié)</label>
-                        <input type="email" name="email" class="form-control" value="{{ current_user.email or '' }}" required>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <a href="{{ url_for('index') }}" class="btn btn-secondary w-50">Retour</a>
-                        <button type="submit" class="btn btn-danger w-50">Enregistrer</button>
-                    </div>
-                </form>
-            </div>
+<div class="container py-4" style="max-width: 600px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-danger text-white fw-bold">Mon Profil</div>
+        <div class="card-body bg-light">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nom d'utilisateur</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Prénom</label>
+                    <input type="text" name="prenom" class="form-control" value="{{ current_user.prenom }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Nom</label>
+                    <input type="text" name="nom" class="form-control" value="{{ current_user.nom }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ current_user.email or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Rôle</label>
+                    <input type="text" class="form-control" value="{{ current_user.role | upper }}" disabled>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-danger fw-bold">Enregistrer les modifications</button>
+                    <a href="{{ url_for('change_password') }}" class="btn btn-outline-dark">Modifier le mot de passe</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

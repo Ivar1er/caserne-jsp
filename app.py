@@ -118,11 +118,9 @@ def login():
 
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password_hash, password):
-      # L'admin global se connecte sans restriction de section
       if user.role == 'admin':
         login_user(user)
         return redirect(url_for('index'))
-      # Pour les formateurs et JSP, la section sélectionnée doit correspondre
       elif sec_id and str(user.section_id) == str(sec_id):
         login_user(user)
         return redirect(url_for('index'))
@@ -141,6 +139,19 @@ def login():
 def logout():
   logout_user()
   return redirect(url_for('login'))
+
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+  if request.method == 'POST':
+    current_user.prenom = request.form.get('prenom', current_user.prenom)
+    current_user.nom = request.form.get('nom', current_user.nom)
+    current_user.email = request.form.get('email', current_user.email)
+    db.session.commit()
+    flash('Profil mis à jour avec succès.', 'success')
+    return redirect(url_for('profile'))
+  return render_template('profile.html')
 
 
 @app.route('/change-password', methods=['GET', 'POST'])
