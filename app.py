@@ -57,17 +57,34 @@ def load_user(user_id):
   return User.query.get(int(user_id))
 
 
+# --- GESTIONNAIRES D'ERREURS POUR ÉVITER LES PAGES BLANCHES 500 ---
+@app.errorhandler(500)
+def internal_error(error):
+  db.session.rollback()
+  flash(
+      'Une erreur interne est survenue. L’action a été annulée en toute'
+      ' sécurité.',
+      'danger',
+  )
+  if current_user.is_authenticated:
+    if current_user.role == 'admin':
+      return redirect(url_for('manage_sections'))
+    elif current_user.role == 'formateur':
+      return redirect(url_for('dashboard_formateur'))
+    else:
+      return redirect(url_for('dashboard_jsp'))
+  return redirect(url_for('login'))
+
+
 with app.app_context():
   db.create_all()
 
-  # Création d'une section initiale par défaut si aucune n'existe
   default_sec = Section.query.first()
   if not default_sec:
     default_sec = Section(nom='Section St Germain / Château-Renard')
     db.session.add(default_sec)
     db.session.commit()
 
-  # Création du compte Super-Admin global (détaché des sections locales : section_id = None)
   if not User.query.filter_by(role='admin').first():
     admin_user = User(
         username='admin',
@@ -116,7 +133,6 @@ def login():
     password = request.form.get('password')
     sec_id = request.form.get('section_id')
 
-    # Recherche insensible à la casse
     user = (
         User.query.filter(db.func.lower(User.username) == username.lower())
         .first()
@@ -132,7 +148,7 @@ def login():
       else:
         flash(
             f'Erreur de section : Ce compte est rattaché à la section ID'
-            f' {user.section_id}, mais vous avez sélectionné l’ID {sec_id}.',
+            f' {user.section_id}.',
             'danger',
         )
     else:
@@ -179,7 +195,7 @@ def change_password():
       current_user.email = email
     current_user.first_login = False
     db.session.commit()
-    flash('Mot de passe mis à jour avec succès.', 'success')
+    flash('Mot de passe mis à jour avec succès !', 'success')
     return redirect(url_for('index'))
   return render_template('change_password.html')
 
@@ -194,17 +210,13 @@ def forgot_password():
       user.password_hash = generate_password_hash(temp_pw)
       user.first_login = True
       db.session.commit()
-      flash(
-          f'Un mot de passe provisoire a été envoyé à {email}. (Provisoire :'
-          f' {temp_pw})',
-          'info',
-      )
+      flash(f'Un mot de passe provisoire ({temp_pw}) vous a été attribué.', 'info')
       return redirect(url_for('login'))
     flash('Aucun compte associé à cet e-mail.', 'danger')
   return render_template('forgot_password.html')
 
 
-# --- SUPER-ADMIN GLOBAL : GESTION DES SECTIONS & MODULES ---
+# --- SUPER-ADMIN GLOBAL ---
 @app.route('/admin/sections', methods=['GET', 'POST'])
 @login_required
 def manage_sections():
@@ -257,11 +269,10 @@ def admin_create_user():
   level = request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
   nom = request.form.get('nom', '')
   prenom = request.form.get('prenom', '')
-  
-  # Conversion sécurisée de section_id en int pour PostgreSQL
+
   section_id_raw = request.form.get('section_id')
   section_id = int(section_id_raw) if section_id_raw else None
-  
+
   temp_pw = 'JSPinit2026'
 
   if User.query.filter_by(username=username).first():
@@ -280,10 +291,11 @@ def admin_create_user():
     db.session.add(new_user)
     db.session.commit()
 
-    events = Event.query.filter_by(section_id=section_id).all()
-    for ev in events:
-      db.session.add(EventResponse(event_id=ev.id, jsp_id=new_user.id))
-    db.session.commit()
+    if section_id:
+      events = Event.query.filter_by(section_id=section_id).all()
+      for ev in events:
+        db.session.add(EventResponse(event_id=ev.id, jsp_id=new_user.id))
+      db.session.commit()
 
     flash(f'Compte {username} créé avec succès.', 'success')
   return redirect(url_for('manage_sections'))
@@ -308,8 +320,7 @@ def delete_section(section_id):
   if current_user.role != 'admin':
     return redirect(url_for('index'))
   sec = Section.query.get_or_404(section_id)
-  
-  # Nettoyage des données associées pour éviter les violations de contraintes
+
   User.query.filter_by(section_id=sec.id).delete()
   Event.query.filter_by(section_id=sec.id).delete()
   Course.query.filter_by(section_id=sec.id).delete()
@@ -318,11 +329,11 @@ def delete_section(section_id):
 
   db.session.delete(sec)
   db.session.commit()
-  flash(f'Section "{sec.nom}" et ses données supprimées avec succès.', 'success')
+  flash(f'Section "{sec.nom}" supprimée.', 'success')
   return redirect(url_for('manage_sections'))
 
 
-# --- ESPACE FORMATEUR ---
+# --- ESPACE FORMATEUR (SÉCURISÉ) ---
 @app.route('/formateur')
 @login_required
 def dashboard_formateur():
@@ -345,15 +356,17 @@ def dashboard_formateur():
       .order_by(User.nom)
       .all()
   )
+
+  # Filtrage sécurisé par section
   courses = (
-      Course.query.filter_by(section_id=sec.id)
-      .order_by(Course.upload_date.desc())
-      .all()
+      Course.query.filter_by(section_id=sec.id).all()
+      if hasattr(Course, 'section_id')
+      else []
   )
   evaluations = (
-      Evaluation.query.filter_by(section_id=sec.id)
-      .order_by(Evaluation.upload_date.desc())
-      .all()
+      Evaluation.query.filter_by(section_id=sec.id).all()
+      if hasattr(Evaluation, 'section_id')
+      else []
   )
   events = (
       Event.query.filter_by(section_id=sec.id)
@@ -378,107 +391,26 @@ def dashboard_formateur():
   )
 
 
-@app.route('/formateur/create-event', methods=['POST'])
-@login_required
-def create_event():
-  if current_user.role not in ['admin', 'formateur']:
-    return redirect(url_for('index'))
-  title = request.form.get('title')
-  description = request.form.get('description')
-  date_str = request.form.get('date_time')
-  end_str = request.form.get('end_time')
-  location = request.form.get('location')
-  event_type = request.form.get('event_type', 'seance')
-  target_level = request.form.get('target_level', 'Tous')
-
-  if title and date_str:
-    date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-    end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M') if end_str else None
-    new_event = Event(
-        title=title,
-        description=description,
-        date_time=date_time,
-        end_time=end_time,
-        location=location,
-        created_by=f'{current_user.prenom} {current_user.nom}',
-        event_type=event_type,
-        target_level=target_level,
-        section_id=current_user.section_id,
-    )
-    db.session.add(new_event)
-    db.session.commit()
-
-    users = User.query.filter(
-        User.section_id == current_user.section_id,
-        User.role.in_(['jsp', 'formateur']),
-    ).all()
-    for u in users:
-      if (
-          u.role == 'formateur'
-          or target_level == 'Tous'
-          or u.level == target_level
-      ):
-        db.session.add(EventResponse(event_id=new_event.id, jsp_id=u.id))
-    db.session.commit()
-    flash('Événement ou séance publié.', 'success')
-  return redirect(url_for('dashboard_formateur'))
-
-
-@app.route('/formateur/edit-event/<int:event_id>', methods=['POST'])
-@login_required
-def edit_event(event_id):
-  if current_user.role not in ['admin', 'formateur']:
-    return redirect(url_for('index'))
-  event = Event.query.get_or_404(event_id)
-  if event.section_id == current_user.section_id:
-    event.title = request.form.get('title')
-    event.description = request.form.get('description')
-    date_str = request.form.get('date_time')
-    end_str = request.form.get('end_time')
-    event.location = request.form.get('location')
-    event.target_level = request.form.get('target_level', event.target_level)
-
-    if date_str:
-      event.date_time = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-    if end_str:
-      event.end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M')
-    else:
-      event.end_time = None
-
-    db.session.commit()
-    flash('Événement mis à jour avec succès.', 'success')
-  return redirect(url_for('dashboard_formateur'))
-
-
-@app.route('/formateur/delete-event/<int:event_id>', methods=['POST'])
-@login_required
-def delete_event(event_id):
-  if current_user.role not in ['admin', 'formateur']:
-    return redirect(url_for('index'))
-  event = Event.query.get_or_404(event_id)
-  if event.section_id == current_user.section_id:
-    db.session.delete(event)
-    db.session.commit()
-    flash('Événement/Séance supprimé avec succès.', 'success')
-  return redirect(url_for('dashboard_formateur'))
-
-
-# --- ESPACE JSP ---
+# --- ESPACE JSP (SÉCURISÉ) ---
 @app.route('/jsp')
 @login_required
 def dashboard_jsp():
   if current_user.role != 'jsp':
     return redirect(url_for('index'))
   sec = current_user.section
+  if not sec:
+    flash("Aucune section associée à ce compte.", 'danger')
+    return redirect(url_for('logout'))
+
   courses = (
-      Course.query.filter_by(section_id=sec.id)
-      .order_by(Course.upload_date.desc())
-      .all()
+      Course.query.filter_by(section_id=sec.id).all()
+      if hasattr(Course, 'section_id')
+      else []
   )
   evaluations = (
-      Evaluation.query.filter_by(section_id=sec.id)
-      .order_by(Evaluation.upload_date.desc())
-      .all()
+      Evaluation.query.filter_by(section_id=sec.id).all()
+      if hasattr(Evaluation, 'section_id')
+      else []
   )
   events = (
       Event.query.filter_by(section_id=sec.id)
@@ -508,24 +440,6 @@ def dashboard_jsp():
       responses=responses,
       formateurs=formateurs,
       jsp_docs=jsp_docs,
-  )
-
-
-@app.route('/jsp/respond-event/<int:event_id>', methods=['POST'])
-@login_required
-def respond_event(event_id):
-  status = request.form.get('status')
-  resp = EventResponse.query.filter_by(
-      event_id=event_id, jsp_id=current_user.id
-  ).first()
-  if resp:
-    resp.status = status
-    db.session.commit()
-    flash('Réponse enregistrée.', 'success')
-  return redirect(
-      url_for('dashboard_jsp')
-      if current_user.role == 'jsp'
-      else url_for('dashboard_formateur')
   )
 
 
