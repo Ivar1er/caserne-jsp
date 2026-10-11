@@ -8,7 +8,7 @@ db = SQLAlchemy()
 class Section(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   nom = db.Column(db.String(100), unique=True, nullable=False)
-  # Interrupteurs de modules (Feature Flags) pour les 10 modules
+  # Interrupteurs de modules (Feature Flags)
   module_calendrier = db.Column(db.Boolean, default=True)
   module_seances = db.Column(db.Boolean, default=True)
   module_fiches = db.Column(db.Boolean, default=True)
@@ -26,7 +26,7 @@ class User(UserMixin, db.Model):
   username = db.Column(db.String(80), unique=True, nullable=False)
   password_hash = db.Column(db.String(200), nullable=False)
   role = db.Column(db.String(20), nullable=False)  # 'admin', 'formateur', 'jsp'
-  level = db.Column(db.String(10), default='JSP 1')  # 'JSP 1' à 'JSP 4'
+  level = db.Column(db.String(10), default='JSP 1')
   nom = db.Column(db.String(80), default='')
   prenom = db.Column(db.String(80), default='')
   email = db.Column(db.String(120), nullable=True)
@@ -34,7 +34,7 @@ class User(UserMixin, db.Model):
   adresse = db.Column(db.String(200), nullable=True)
   section_id = db.Column(
       db.Integer, db.ForeignKey('section.id'), nullable=True
-  )
+  )  # Nullable pour l'admin global
   section = db.relationship(
       'Section', backref=db.backref('users', lazy=True, cascade='all, delete')
   )
@@ -49,9 +49,7 @@ class Event(db.Model):
   end_time = db.Column(db.DateTime, nullable=True)
   location = db.Column(db.String(150), nullable=True)
   created_by = db.Column(db.String(80), nullable=False)
-  event_type = db.Column(
-      db.String(20), default='seance'
-  )  # 'calendrier' ou 'seance'
+  event_type = db.Column(db.String(20), default='seance')
   target_level = db.Column(db.String(20), default='Tous')
   section_id = db.Column(
       db.Integer, db.ForeignKey('section.id'), nullable=False
@@ -81,9 +79,7 @@ class Grade(db.Model):
   jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
   title = db.Column(db.String(150), nullable=False)
   score = db.Column(db.Float, nullable=False)
-  level_attained = db.Column(
-      db.String(10), default='JSP 1'
-  )  # Archivage par année
+  level_attained = db.Column(db.String(10), default='JSP 1')
   date = db.Column(db.DateTime, default=datetime.utcnow)
   jsp = db.relationship(
       'User', backref=db.backref('grades', cascade='all, delete-orphan')
@@ -134,34 +130,6 @@ class JspDocument(db.Model):
   )
 
 
-# --- NOUVEAUX MODÈLES PROFESSIONNELS ---
-class Competence(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-  module_ue = db.Column(
-      db.String(150), nullable=False
-  )  # ex: Incendie, SAP, Opérations diverses
-  status = db.Column(
-      db.String(20), default='Non acquis'
-  )  # Acquis, En cours, Non acquis
-  jsp = db.relationship(
-      'User', backref=db.backref('competences', cascade='all, delete-orphan')
-  )
-
-
-class EpiItem(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-  item_name = db.Column(
-      db.String(100), nullable=False
-  )  # Casque, Tenue de feu, Gants, etc.
-  taille = db.Column(db.String(20), nullable=True)
-  statut_dotation = db.Column(db.String(50), default='Attribué')
-  jsp = db.relationship(
-      'User', backref=db.backref('epi_items', cascade='all, delete-orphan')
-  )
-
-
 class Alerte(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   title = db.Column(db.String(150), nullable=False)
@@ -171,14 +139,3 @@ class Alerte(db.Model):
       db.Integer, db.ForeignKey('section.id'), nullable=False
   )
   section = db.relationship('Section', backref=db.backref('alertes', lazy=True))
-
-
-class Cotisation(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-  annee = db.Column(db.String(10), nullable=False)
-  montant = db.Column(db.Float, default=0.0)
-  statut = db.Column(db.String(20), default='En attente')  # Payé, En attente
-  jsp = db.relationship(
-      'User', backref=db.backref('cotisations', cascade='all, delete-orphan')
-  )

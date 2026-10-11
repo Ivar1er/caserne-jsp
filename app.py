@@ -17,10 +17,7 @@ from flask_login import (
 )
 from models import (
     Alerte,
-    Competence,
-    Cotisation,
     Course,
-    EpiItem,
     Evaluation,
     Event,
     EventResponse,
@@ -61,26 +58,26 @@ def load_user(user_id):
 
 
 with app.app_context():
+  db.drop_all()
   db.create_all()
 
-  # Section par défaut de test
-  default_sec = Section.query.filter_by(
-      nom='Section St Germain / Château-Renard'
-  ).first()
+  # Création d'une section initiale par défaut
+  default_sec = Section.query.first()
   if not default_sec:
     default_sec = Section(nom='Section St Germain / Château-Renard')
     db.session.add(default_sec)
     db.session.commit()
 
+  # Création du compte Super-Admin global (section_id = None)
   if not User.query.filter_by(role='admin').first():
     admin_user = User(
         username='admin',
         password_hash=generate_password_hash('Admin2026!'),
         role='admin',
-        prenom='Nicolas',
+        prenom='Super',
         nom='Admin',
-        email='admin@caserne.fr',
-        section_id=default_sec.id,
+        email='admin@saas.fr',
+        section_id=None,
         first_login=False,
     )
     db.session.add(admin_user)
@@ -104,7 +101,9 @@ def check_first_login():
 def index():
   if not current_user.is_authenticated:
     return redirect(url_for('login'))
-  if current_user.role in ['admin', 'formateur']:
+  if current_user.role == 'admin':
+    return redirect(url_for('manage_sections'))
+  elif current_user.role == 'formateur':
     return redirect(url_for('dashboard_formateur'))
   else:
     return redirect(url_for('dashboard_jsp'))
@@ -120,17 +119,21 @@ def login():
 
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password_hash, password):
-      if user.role == 'admin' or str(user.section_id) == str(sec_id):
-        if user.role == 'admin' and sec_id:
-          user.section_id = int(sec_id)
-          db.session.commit()
+      # Si c'est l'admin global, pas besoin de vérifier la section
+      if user.role == 'admin':
         login_user(user)
         return redirect(url_for('index'))
-
-    flash(
-        'Identifiant, mot de passe incorrect ou section non correspondante.',
-        'danger',
-    )
+      # Pour les formateurs et JSP, la section doit correspondre
+      elif sec_id and str(user.section_id) == str(sec_id):
+        login_user(user)
+        return redirect(url_for('index'))
+      else:
+        flash(
+            'Section non correspondante pour ce compte formateur ou JSP.',
+            'danger',
+        )
+    else:
+      flash('Identifiant ou mot de passe incorrect.', 'danger')
   return render_template('login.html', sections=sections)
 
 
@@ -182,7 +185,7 @@ def forgot_password():
   return render_template('forgot_password.html')
 
 
-# --- SUPER ADMIN : GESTION DES SECTIONS & MODULES ---
+# --- SUPER-ADMIN GLOBAL : GESTION DES SECTIONS & MODULES ---
 @app.route('/admin/sections', methods=['GET', 'POST'])
 @login_required
 def manage_sections():
@@ -276,12 +279,16 @@ def delete_user(user_id):
   return redirect(url_for('manage_sections'))
 
 
-# --- ESPACE FORMATEUR & ADMIN ---
+# --- ESPACE FORMATEUR ---
 @app.route('/formateur')
 @login_required
 def dashboard_formateur():
   if current_user.role not in ['admin', 'formateur']:
     return redirect(url_for('index'))
+  if not current_user.section:
+    flash("Votre compte n'est rattaché à aucune section.", 'danger')
+    return redirect(url_for('logout'))
+
   sec = current_user.section
   jsps = (
       User.query.filter_by(role='jsp', section_id=sec.id)
