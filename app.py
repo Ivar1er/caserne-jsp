@@ -457,12 +457,29 @@ def scoped(model, identity):
     return obj
 
 
-def dashboard_redirect():
-    return redirect(
-        url_for(
-            "dashboard_jsp" if current_user.role == "jsp" else "dashboard_formateur"
-        )
+def dashboard_tabs(sec, candidate=None):
+    """Retenir uniquement un onglet autorisé, séparément pour chaque section."""
+    enabled = {
+        name: label for name, label in MODULES.items() if getattr(sec, "module_" + name)
+    }
+    key = f"dashboard_tab_{sec.id}"
+    active = candidate if candidate in enabled else session.get(key)
+    if active not in enabled:
+        active = next(iter(enabled), None)
+    if active:
+        session[key] = active
+    else:
+        session.pop(key, None)
+    return enabled, active
+
+
+def dashboard_redirect(module=None):
+    if current_user.role == "jsp":
+        return redirect(url_for("dashboard_jsp"))
+    _, active = dashboard_tabs(
+        active_section(), request.form.get("active_tab") or module
     )
+    return redirect(url_for("dashboard_formateur", tab=active))
 
 
 def consume_rate(bucket, limit=10):
@@ -767,17 +784,9 @@ def register_routes(app):
         session["admin_section"] = section_id
         return redirect(url_for("dashboard_formateur"))
 
-    @app.route("/admin/create-user", methods=["POST"])
-    @access("admin")
-    def admin_create_user():
+    def create_member(sec, role):
+        """Créer un membre avec un mot de passe individuel et ses invitations."""
         username = field("username", 80)
-        role = field("role", 20)
-        if role not in {"formateur", "jsp"}:
-            raise ValueError("Rôle invalide.")
-        section_id = request.form.get("section_id", type=int)
-        if section_id is None:
-            raise ValueError("Section invalide.")
-        sec = db.get_or_404(Section, section_id)
         level = request.form.get("level", "JSP 1") if role == "jsp" else "N/A"
         if role == "jsp" and level not in LEVELS:
             raise ValueError("Niveau invalide.")
@@ -791,6 +800,7 @@ def register_routes(app):
             level=level,
             nom=field("nom", 80),
             prenom=field("prenom", 80),
+            email=email_value(request.form.get("email")),
             section_id=sec.id,
             first_login=True,
         )
@@ -802,9 +812,34 @@ def register_routes(app):
         db.session.commit()
         flash(
             f"Compte {username} créé. Mot de passe provisoire : {password}. À transmettre personnellement à son titulaire.",
-            "success",
+            "warning",
         )
+
+    @app.route("/admin/create-user", methods=["POST"])
+    @access("admin")
+    def admin_create_user():
+        role = field("role", 20)
+        if role not in {"formateur", "jsp"}:
+            raise ValueError("Rôle invalide.")
+        section_id = request.form.get("section_id", type=int)
+        if section_id is None:
+            raise ValueError("Section invalide.")
+        create_member(db.get_or_404(Section, section_id), role)
         return redirect(url_for("manage_sections"))
+
+    @app.route("/formateur/create-jsp", methods=["POST"])
+    @access("formateur", "fiches")
+    def formateur_create_jsp():
+        sec = active_section()
+        if request.form.get("role", "jsp") != "jsp":
+            abort(403)
+        if (
+            "section_id" in request.form
+            and request.form.get("section_id", type=int) != sec.id
+        ):
+            abort(403)
+        create_member(sec, "jsp")
+        return dashboard_redirect("fiches")
 
     @app.route("/admin/reset-user/<int:user_id>", methods=["POST"])
     @access("admin")
@@ -904,8 +939,14 @@ def register_routes(app):
     @app.route("/formateur")
     @access("formateur")
     def dashboard_formateur():
-        context = dashboard_context(active_section())
-        return render_template("dashboard_formateur.html", **context)
+        sec = active_section()
+        enabled, active = dashboard_tabs(sec, request.args.get("tab"))
+        return render_template(
+            "dashboard_formateur.html",
+            **dashboard_context(sec),
+            enabled_modules=enabled,
+            active_tab=active,
+        )
 
     @app.route("/jsp")
     @access("jsp")
@@ -972,7 +1013,7 @@ def register_routes(app):
         synchronize_responses(ev)
         db.session.commit()
         flash("Événement publié.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("seances" if kind == "seance" else "calendrier")
 
     @app.route("/formateur/edit-event/<int:event_id>", methods=["POST"])
     @access("formateur")
@@ -984,7 +1025,9 @@ def register_routes(app):
         synchronize_responses(ev)
         db.session.commit()
         flash("Événement mis à jour.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect(
+            "seances" if ev.event_type == "seance" else "calendrier"
+        )
 
     @app.route("/formateur/delete-event/<int:event_id>", methods=["POST"])
     @access("formateur")
@@ -994,7 +1037,9 @@ def register_routes(app):
         db.session.delete(ev)
         db.session.commit()
         flash("Événement supprimé.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect(
+            "seances" if ev.event_type == "seance" else "calendrier"
+        )
 
     @app.route("/jsp/respond-event/<int:event_id>", methods=["POST"])
     @login_required
@@ -1015,7 +1060,9 @@ def register_routes(app):
         response.status = status
         db.session.commit()
         flash("Réponse enregistrée.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect(
+            "seances" if ev.event_type == "seance" else "calendrier"
+        )
 
     @app.route("/formateur/update-jsp-info/<int:jsp_id>", methods=["POST"])
     @access("formateur", "fiches")
@@ -1050,7 +1097,7 @@ def register_routes(app):
                 synchronize_responses(ev)
         db.session.commit()
         flash("Fiche mise à jour.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("fiches")
 
     @app.route("/formateur/add-grade/<int:jsp_id>", methods=["POST"])
     @access("formateur", "evaluations")
@@ -1074,14 +1121,14 @@ def register_routes(app):
         )
         db.session.commit()
         flash("Note enregistrée.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("evaluations")
 
     @app.route("/formateur/delete-grade/<int:grade_id>", methods=["POST"])
     @access("formateur", "evaluations")
     def delete_grade(grade_id):
         db.session.delete(scoped(Grade, grade_id))
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect("evaluations")
 
     @app.route("/formateur/upload-course", methods=["POST"])
     @access("formateur", "cours")
@@ -1093,7 +1140,7 @@ def register_routes(app):
             uploaded_by=f"{current_user.prenom} {current_user.nom}"[:80],
         )
         flash("Cours publié.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("cours")
 
     @app.route("/formateur/upload-eval", methods=["POST"])
     @access("formateur", "evaluations")
@@ -1105,7 +1152,7 @@ def register_routes(app):
             uploaded_by=f"{current_user.prenom} {current_user.nom}"[:80],
         )
         flash("Évaluation publiée.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("evaluations")
 
     @app.route("/jsp/upload-doc", methods=["POST"])
     @access("jsp", "fiches")
@@ -1127,7 +1174,7 @@ def register_routes(app):
             level_attained=current_user.level,
         )
         flash("Document transmis.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("fiches")
 
     def permitted_document(kind, identity):
         models = {
@@ -1180,7 +1227,9 @@ def register_routes(app):
         db.session.commit()
         remove_files([filename])
         flash("Document supprimé.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect(
+            {"course": "cours", "evaluation": "evaluations", "jsp": "fiches"}[kind]
+        )
 
     @app.route("/formateur/alertes", methods=["POST"])
     @access("formateur", "alerte")
@@ -1194,7 +1243,7 @@ def register_routes(app):
         )
         db.session.commit()
         flash("Alerte publiée dans le portail.", "success")
-        return dashboard_redirect()
+        return dashboard_redirect("alerte")
 
     @app.route("/formateur/progress/<int:jsp_id>", methods=["POST"])
     @access("formateur", "livret")
@@ -1209,7 +1258,7 @@ def register_routes(app):
             Progress(jsp=user, title=field("title"), level=user.level, status=status)
         )
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect("livret")
 
     @app.route("/formateur/equipment", methods=["POST"])
     @access("formateur", "materiel")
@@ -1231,7 +1280,7 @@ def register_routes(app):
             )
         )
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect("materiel")
 
     @app.route("/formateur/equipment/<int:equipment_id>", methods=["POST"])
     @access("formateur", "materiel")
@@ -1248,7 +1297,7 @@ def register_routes(app):
         item.quantity = quantity
         item.condition = condition
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect("materiel")
 
     @app.route("/formateur/transactions", methods=["POST"])
     @access("formateur", "tresorerie")
@@ -1274,7 +1323,7 @@ def register_routes(app):
             )
         )
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect("tresorerie")
 
     @app.route("/formateur/remove/<kind>/<int:identity>", methods=["POST"])
     @access("formateur")
@@ -1292,7 +1341,7 @@ def register_routes(app):
             abort(403)
         db.session.delete(scoped(model, identity))
         db.session.commit()
-        return dashboard_redirect()
+        return dashboard_redirect(module)
 
     def csv_response(rows, filename):
         output = StringIO()
