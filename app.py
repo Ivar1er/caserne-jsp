@@ -112,11 +112,16 @@ def index():
 def login():
   sections = Section.query.order_by(Section.nom).all()
   if request.method == 'POST':
-    username = request.form.get('username')
+    username = request.form.get('username', '').strip()
     password = request.form.get('password')
     sec_id = request.form.get('section_id')
 
-    user = User.query.filter_by(username=username).first()
+    # Recherche insensible à la casse pour éviter les erreurs de saisie
+    user = (
+        User.query.filter(db.func.lower(User.username) == username.lower())
+        .first()
+    )
+
     if user and check_password_hash(user.password_hash, password):
       if user.role == 'admin':
         login_user(user)
