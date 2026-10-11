@@ -116,7 +116,7 @@ def login():
     password = request.form.get('password')
     sec_id = request.form.get('section_id')
 
-    # Recherche insensible à la casse pour éviter les erreurs de saisie
+    # Recherche insensible à la casse
     user = (
         User.query.filter(db.func.lower(User.username) == username.lower())
         .first()
@@ -257,7 +257,11 @@ def admin_create_user():
   level = request.form.get('level', 'JSP 1') if role == 'jsp' else 'N/A'
   nom = request.form.get('nom', '')
   prenom = request.form.get('prenom', '')
-  section_id = request.form.get('section_id')
+  
+  # Conversion sécurisée de section_id en int pour PostgreSQL
+  section_id_raw = request.form.get('section_id')
+  section_id = int(section_id_raw) if section_id_raw else None
+  
   temp_pw = 'JSPinit2026'
 
   if User.query.filter_by(username=username).first():
@@ -295,6 +299,26 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     flash('Compte supprimé avec succès.', 'success')
+  return redirect(url_for('manage_sections'))
+
+
+@app.route('/admin/delete-section/<int:section_id>', methods=['POST'])
+@login_required
+def delete_section(section_id):
+  if current_user.role != 'admin':
+    return redirect(url_for('index'))
+  sec = Section.query.get_or_404(section_id)
+  
+  # Nettoyage des données associées pour éviter les violations de contraintes
+  User.query.filter_by(section_id=sec.id).delete()
+  Event.query.filter_by(section_id=sec.id).delete()
+  Course.query.filter_by(section_id=sec.id).delete()
+  Evaluation.query.filter_by(section_id=sec.id).delete()
+  Alerte.query.filter_by(section_id=sec.id).delete()
+
+  db.session.delete(sec)
+  db.session.commit()
+  flash(f'Section "{sec.nom}" et ses données supprimées avec succès.', 'success')
   return redirect(url_for('manage_sections'))
 
 

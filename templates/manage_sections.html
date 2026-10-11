@@ -31,17 +31,20 @@
         </div>
     </div>
 
-    <!-- 2. Activation des 10 Modules par Section -->
+    <!-- 2. Activation des 10 Modules & Suppression par Section -->
     <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-danger text-white fw-bold">Activation des Modules par Section (Feature Flags)</div>
+        <div class="card-header bg-danger text-white fw-bold">Gestion des Sections & Modules (Feature Flags)</div>
         <div class="card-body">
             <div class="accordion" id="accordionSections">
                 {% for sec in sections %}
                 <div class="accordion-item mb-2 border">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sec{{ sec.id }}">
+                    <h2 class="accordion-header d-flex justify-content-between align-items-center bg-light">
+                        <button class="accordion-button collapsed fw-bold flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#sec{{ sec.id }}">
                             📍 {{ sec.nom }}
                         </button>
+                        <form action="{{ url_for('delete_section', section_id=sec.id) }}" method="POST" class="px-3" onsubmit="return confirm('ATTENTION : Supprimer cette section supprimera aussi tous ses utilisateurs et événements associés. Continuer ?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger fw-bold">Supprimer la section</button>
+                        </form>
                     </h2>
                     <div id="sec{{ sec.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionSections">
                         <div class="accordion-body bg-light">
