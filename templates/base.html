@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Caserne JSP</title>
+<title>JSP Portal</title>
 <link href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}" rel="stylesheet">
 <style>
 body{background:#f4f5f7}.card{border:0}.table{vertical-align:middle}
@@ -14,14 +14,15 @@ input,select,textarea{max-width:100%}
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm"><div class="container">
-<a class="navbar-brand fw-bold" href="{{ url_for('index') }}"><img src="{{ url_for('static',filename='logo.png') }}" alt="" width="28" height="28" style="object-fit:contain"> Caserne JSP</a>
-<div class="d-flex gap-2 flex-wrap align-items-center">
+<a class="navbar-brand fw-bold" href="{{ url_for('index') }}"><img src="{{ url_for('static',filename='logo.png') }}" alt="" width="28" height="28" style="object-fit:contain"> JSP Portal</a>
 {% if current_user.is_authenticated %}
+<div class="d-flex gap-2 flex-wrap align-items-center">
 {% if current_user.role == 'admin' %}<a class="btn btn-sm btn-outline-light" href="{{ url_for('manage_sections') }}">Sections & Comptes</a>{% endif %}
 <a class="btn btn-sm btn-outline-light" href="{{ url_for('profile') }}">Mon profil</a>
 <form action="{{ url_for('logout') }}" method="POST" class="m-0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger">Déconnexion</button></form>
-{% else %}<a class="btn btn-sm btn-outline-light" href="{{ url_for('login') }}">Connexion</a>{% endif %}
-</div></div></nav>
+</div>
+{% endif %}
+</div></nav>
 <main class="container pb-5">
 {% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}
 <div class="alert alert-{{ category }} alert-dismissible" role="{{ 'status' if category == 'success' else 'alert' }}"{% if category == 'success' %} data-auto-dismiss="3000"{% endif %}>
