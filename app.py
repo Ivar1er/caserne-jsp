@@ -61,7 +61,7 @@ def load_user(user_id):
 
 
 with app.app_context():
-  db.drop_all()
+  #db.drop_all()
   db.create_all()
 
   # Section par défaut de test
