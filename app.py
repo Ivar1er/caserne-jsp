@@ -27,7 +27,6 @@ from models import (
     User,
     db,
 )
-from sqlalchemy import text
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -59,26 +58,16 @@ def load_user(user_id):
 
 
 with app.app_context():
-  # Nettoyage propre avec CASCADE pour forcer la mise à jour des tables SaaS
-  # 💡 Astuce : Tu pourras commenter ou supprimer ces 3 lignes après le premier déploiement réussi pour sécuriser tes données.
-  db.session.execute(
-      text(
-          'DROP TABLE IF EXISTS competence, epi_item, cotisation,'
-          ' jsp_document, evaluation, course, grade, event_response, event,'
-          ' "user", section CASCADE;'
-      )
-  )
-  db.session.commit()
   db.create_all()
 
-  # Création d'une section initiale par défaut
+  # Création d'une section initiale par défaut si aucune n'existe
   default_sec = Section.query.first()
   if not default_sec:
     default_sec = Section(nom='Section St Germain / Château-Renard')
     db.session.add(default_sec)
     db.session.commit()
 
-  # Création du compte Super-Admin global (section_id = None)
+  # Création du compte Super-Admin global (détaché des sections locales : section_id = None)
   if not User.query.filter_by(role='admin').first():
     admin_user = User(
         username='admin',
@@ -129,9 +118,11 @@ def login():
 
     user = User.query.filter_by(username=username).first()
     if user and check_password_hash(user.password_hash, password):
+      # L'admin global se connecte sans restriction de section
       if user.role == 'admin':
         login_user(user)
         return redirect(url_for('index'))
+      # Pour les formateurs et JSP, la section sélectionnée doit correspondre
       elif sec_id and str(user.section_id) == str(sec_id):
         login_user(user)
         return redirect(url_for('index'))
