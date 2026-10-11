@@ -126,11 +126,15 @@ def login():
         return redirect(url_for('index'))
       else:
         flash(
-            'Section non correspondante pour ce compte formateur ou JSP.',
+            f'Erreur de section : Ce compte est rattaché à la section ID'
+            f' {user.section_id}, mais vous avez sélectionné l’ID {sec_id}.',
             'danger',
         )
     else:
-      flash('Identifiant ou mot de passe incorrect.', 'danger')
+      flash(
+          'Identifiant ou mot de passe incorrect (ou compte introuvable).',
+          'danger',
+      )
   return render_template('login.html', sections=sections)
 
 

@@ -1,16 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow border-0">
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 mt-4">
             <div class="card-body p-4">
-                <h3 class="text-center text-danger mb-4 fw-bold">Connexion - Portail JSP</h3>
+                <h3 class="text-center text-danger fw-bold mb-4">Connexion - Portail JSP</h3>
+
+                <!-- Messages Flash pour afficher les erreurs -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Centre d'incendie et de secours</label>
-                        <select name="centre" class="form-select" required>
-                            <option value="Section St Germain / Château-Renard" selected>Section St Germain / Château-Renard</option>
-                            <!-- Futurs centres ajoutables ici -->
+                        <select name="section_id" class="form-select" required>
+                            {% for sec in sections %}
+                                <option value="{{ sec.id }}">{{ sec.nom }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
@@ -21,10 +35,10 @@
                         <label class="form-label fw-bold">Mot de passe</label>
                         <input type="password" name="password" class="form-control" placeholder="Mot de passe" required>
                     </div>
-                    <button type="submit" class="btn btn-danger w-100 py-2 fw-bold">Se connecter</button>
+                    <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Se connecter</button>
                 </form>
                 <div class="text-center mt-3">
-                    <a href="{{ url_for('forgot_password') }}" class="text-muted small text-decoration-none">Mot de passe oublié ?</a>
+                    <a href="{{ url_for('forgot_password') }}" class="text-decoration-none text-muted small">Mot de passe oublié ?</a>
                 </div>
             </div>
         </div>
