@@ -5,6 +5,22 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+class Section(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  nom = db.Column(db.String(100), unique=True, nullable=False)
+  # Interrupteurs de modules (Feature Flags) pour les 10 modules
+  module_calendrier = db.Column(db.Boolean, default=True)
+  module_seances = db.Column(db.Boolean, default=True)
+  module_fiches = db.Column(db.Boolean, default=True)
+  module_evaluations = db.Column(db.Boolean, default=True)
+  module_cours = db.Column(db.Boolean, default=True)
+  module_livret = db.Column(db.Boolean, default=True)
+  module_materiel = db.Column(db.Boolean, default=True)
+  module_stats = db.Column(db.Boolean, default=True)
+  module_alerte = db.Column(db.Boolean, default=True)
+  module_tresorerie = db.Column(db.Boolean, default=True)
+
+
 class User(UserMixin, db.Model):
   id = db.Column(db.Integer, primary_key=True)
   username = db.Column(db.String(80), unique=True, nullable=False)
@@ -16,8 +32,11 @@ class User(UserMixin, db.Model):
   email = db.Column(db.String(120), nullable=True)
   date_naissance = db.Column(db.Date, nullable=True)
   adresse = db.Column(db.String(200), nullable=True)
-  centre = db.Column(
-      db.String(100), default='Section St Germain / Château-Renard'
+  section_id = db.Column(
+      db.Integer, db.ForeignKey('section.id'), nullable=True
+  )
+  section = db.relationship(
+      'Section', backref=db.backref('users', lazy=True, cascade='all, delete')
   )
   first_login = db.Column(db.Boolean, default=True)
 
@@ -30,19 +49,20 @@ class Event(db.Model):
   end_time = db.Column(db.DateTime, nullable=True)
   location = db.Column(db.String(150), nullable=True)
   created_by = db.Column(db.String(80), nullable=False)
-  event_type = db.Column(db.String(20), default='seance')
+  event_type = db.Column(
+      db.String(20), default='seance'
+  )  # 'calendrier' ou 'seance'
   target_level = db.Column(db.String(20), default='Tous')
-  centre = db.Column(
-      db.String(100), default='Section St Germain / Château-Renard'
+  section_id = db.Column(
+      db.Integer, db.ForeignKey('section.id'), nullable=False
   )
+  section = db.relationship('Section', backref=db.backref('events', lazy=True))
 
 
 class EventResponse(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
-  jsp_id = db.Column(
-      db.Integer, db.ForeignKey('user.id'), nullable=False
-  )  # JSP ou Formateur
+  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
   status = db.Column(db.String(20), default='en_attente')
 
   event = db.relationship(
@@ -63,7 +83,7 @@ class Grade(db.Model):
   score = db.Column(db.Float, nullable=False)
   level_attained = db.Column(
       db.String(10), default='JSP 1'
-  )  # Archivage par niveau
+  )  # Archivage par année
   date = db.Column(db.DateTime, default=datetime.utcnow)
   jsp = db.relationship(
       'User', backref=db.backref('grades', cascade='all, delete-orphan')
@@ -76,9 +96,10 @@ class Course(db.Model):
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
   uploaded_by = db.Column(db.String(80), nullable=False)
-  centre = db.Column(
-      db.String(100), default='Section St Germain / Château-Renard'
+  section_id = db.Column(
+      db.Integer, db.ForeignKey('section.id'), nullable=False
   )
+  section = db.relationship('Section', backref=db.backref('courses', lazy=True))
 
 
 class Evaluation(db.Model):
@@ -87,8 +108,11 @@ class Evaluation(db.Model):
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
   uploaded_by = db.Column(db.String(80), nullable=False)
-  centre = db.Column(
-      db.String(100), default='Section St Germain / Château-Renard'
+  section_id = db.Column(
+      db.Integer, db.ForeignKey('section.id'), nullable=False
+  )
+  section = db.relationship(
+      'Section', backref=db.backref('evaluations', lazy=True)
   )
 
 
@@ -99,7 +123,7 @@ class JspDocument(db.Model):
   title = db.Column(db.String(150), nullable=False)
   filename = db.Column(db.String(200), nullable=False)
   upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-  level_attained = db.Column(db.String(10), default='JSP 1')  # Archivage
+  level_attained = db.Column(db.String(10), default='JSP 1')
   jsp = db.relationship(
       'User', foreign_keys=[jsp_id], backref=db.backref('jsp_docs', lazy=True)
   )
@@ -107,4 +131,54 @@ class JspDocument(db.Model):
       'User',
       foreign_keys=[formateur_id],
       backref=db.backref('assigned_docs', lazy=True),
+  )
+
+
+# --- NOUVEAUX MODÈLES PROFESSIONNELS ---
+class Competence(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+  module_ue = db.Column(
+      db.String(150), nullable=False
+  )  # ex: Incendie, SAP, Opérations diverses
+  status = db.Column(
+      db.String(20), default='Non acquis'
+  )  # Acquis, En cours, Non acquis
+  jsp = db.relationship(
+      'User', backref=db.backref('competences', cascade='all, delete-orphan')
+  )
+
+
+class EpiItem(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+  item_name = db.Column(
+      db.String(100), nullable=False
+  )  # Casque, Tenue de feu, Gants, etc.
+  taille = db.Column(db.String(20), nullable=True)
+  statut_dotation = db.Column(db.String(50), default='Attribué')
+  jsp = db.relationship(
+      'User', backref=db.backref('epi_items', cascade='all, delete-orphan')
+  )
+
+
+class Alerte(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  title = db.Column(db.String(150), nullable=False)
+  content = db.Column(db.Text, nullable=False)
+  date_posted = db.Column(db.DateTime, default=datetime.utcnow)
+  section_id = db.Column(
+      db.Integer, db.ForeignKey('section.id'), nullable=False
+  )
+  section = db.relationship('Section', backref=db.backref('alertes', lazy=True))
+
+
+class Cotisation(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  jsp_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+  annee = db.Column(db.String(10), nullable=False)
+  montant = db.Column(db.Float, default=0.0)
+  statut = db.Column(db.String(20), default='En attente')  # Payé, En attente
+  jsp = db.relationship(
+      'User', backref=db.backref('cotisations', cascade='all, delete-orphan')
   )
